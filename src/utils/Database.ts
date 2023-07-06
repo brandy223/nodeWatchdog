@@ -77,6 +77,25 @@ export async function updateServerType (ip: string, type: string) : Promise<void
 }
 
 /**
+ * Get all servers of jobs assigned to a node
+ * @param jobs[]
+ * @returns {Promise<*>} An array of servers
+ * @throws {Error} If the jobs are null or undefined
+ */
+export async function getAllServersOfJobs (jobs: any[]) : Promise<any> {
+    if (jobs === undefined || jobs === null) throw new Error("No jobs specified");
+    const servers = [];
+    for (const job of jobs) {
+        const server = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
+        console.log(server);
+        const s = await prisma.servers.findUnique({ where: { id: server.serverId } });
+        if (s === undefined || s === null) throw new Error("Server not found");
+        servers.push(s);
+    }
+    return servers;
+}
+
+/**
  * Get a service by id
  * @param id
  * @returns {Promise<*>} The job

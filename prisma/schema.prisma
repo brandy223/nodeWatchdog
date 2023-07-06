@@ -19,9 +19,15 @@ model Services {
   objects   ServicesAndObjects[]
 }
 
+enum ServerStatus {
+  NORMAL
+  NODE
+}
+
 model Servers {
   id        Int                @id @default(autoincrement())
-  ipAddr String @db.VarChar(64)
+  ipAddr String @db.VarChar(64) @unique
+  type   ServerStatus       @default(NORMAL)
   services  ServicesOfServers[]
 }
 

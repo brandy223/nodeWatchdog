@@ -3,6 +3,9 @@ const fetch = require('node-fetch')
 const Network = require('./utils/Network')
 const Database = require('./utils/Database')
 
+/**
+ * Main function
+ */
 async function main () {
 
     // GET LOCAL IP
@@ -23,6 +26,17 @@ async function main () {
             await Database.updateServerType(ip, "NODE");
         }
     }
+
+    // GET ALL JOBS
+    const jobs = await Database.getAllJobsOfNode(ip);
+    if (jobs.length === 0) throw new Error("No jobs found");
+    else
+        console.log(`Jobs: ${JSON.stringify(jobs)}`);
+
+    const services = await Database.getAllServicesOfJobs(jobs);
+    if (services.length === 0) throw new Error("No services found");
+    else
+        console.log(`Services: ${JSON.stringify(services)}`);
 }
 
 main()

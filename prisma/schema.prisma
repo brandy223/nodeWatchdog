@@ -11,12 +11,12 @@ datasource db {
 }
 
 model Services {
-  id        Int    @id @default(autoincrement())
-  name       String @db.VarChar(255)
-  portNo Int @db.TinyInt
-  timeout   Int @db.MediumInt
-  servers   ServicesOfServers[]
-  objects   ServicesAndObjects[]
+  id      Int                  @id @default(autoincrement())
+  name    String               @db.VarChar(255)
+  portNo  Int                  @db.MediumInt
+  timeout Int                  @db.MediumInt
+  servers ServicesOfServers[]
+  objects ServicesAndObjects[]
 }
 
 enum ServerStatus {
@@ -25,10 +25,10 @@ enum ServerStatus {
 }
 
 model Servers {
-  id        Int                @id @default(autoincrement())
-  ipAddr String @db.VarChar(64) @unique
-  type   ServerStatus       @default(NORMAL)
-  services  ServicesOfServers[]
+  id       Int                 @id @default(autoincrement())
+  ipAddr   String              @unique @db.VarChar(64)
+  type     ServerStatus        @default(NORMAL)
+  services ServicesOfServers[]
 }
 
 model ServicesOfServers {
@@ -37,16 +37,16 @@ model ServicesOfServers {
   service   Services @relation(fields: [serviceId], references: [id])
   server    Servers  @relation(fields: [serverId], references: [id])
 
-  @@id([serviceId, serverId])
+  jobId Int?  @unique
+  job   Jobs? @relation(fields: [jobId], references: [id])
 
-  jobId Int?
-  job Jobs? @relation(fields: [jobId], references: [id])
+  @@id([serviceId, serverId])
 }
 
 model Objects {
-  id          Int                @id @default(autoincrement())
-  nom         String @db.VarChar(255)
-  description String? @db.VarChar(255)
+  id          Int                  @id @default(autoincrement())
+  nom         String               @db.VarChar(255)
+  description String?              @db.VarChar(255)
   services    ServicesAndObjects[]
 }
 
@@ -60,9 +60,9 @@ model ServicesAndObjects {
 }
 
 model Jobs {
-  id          Int                @id @default(autoincrement())
-  nom         String @db.VarChar(255)
-  tempsIntervalle Int @db.MediumInt
-  tempsTimeout Int @db.MediumInt
-  services    ServicesOfServers[]
+  id              Int                 @id @default(autoincrement())
+  nom             String              @db.VarChar(255)
+  tempsIntervalle Int                 @db.MediumInt
+  tempsTimeout    Int                 @db.MediumInt
+  services        ServicesOfServers[]
 }

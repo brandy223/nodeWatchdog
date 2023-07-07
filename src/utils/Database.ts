@@ -77,22 +77,19 @@ export async function updateServerType (ip: string, type: string) : Promise<void
 }
 
 /**
- * Get all servers of jobs assigned to a node
- * @param jobs[]
- * @returns {Promise<*>} An array of servers
- * @throws {Error} If the jobs are null or undefined
+ * Get the server designated by the job assigned to a node
+ * @param job
+ * @returns {Promise<*>} A server
+ * @throws {Error} If the job is null or undefined
  */
-export async function getAllServersOfJobs (jobs: any[]) : Promise<any> {
-    if (jobs === undefined || jobs === null) throw new Error("No jobs specified");
-    const servers = [];
-    for (const job of jobs) {
-        const server = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
-        console.log(server);
-        const s = await prisma.servers.findUnique({ where: { id: server.serverId } });
-        if (s === undefined || s === null) throw new Error("Server not found");
-        servers.push(s);
-    }
-    return servers;
+export async function getServerOfJob (job: any) : Promise<any> {
+    if (job === undefined || job === null) throw new Error("No jobs specified");
+
+    const server = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
+    const s = await prisma.servers.findUnique({ where: { id: server.serverId } });
+    if (s === undefined || s === null) throw new Error("Server not found");
+
+    return server;
 }
 
 /**
@@ -107,21 +104,19 @@ export async function getServiceById (id: number) : Promise<any> {
 }
 
 /**
- * Get all services of jobs assigned to a node
- * @param jobs[]
- * @returns {Promise<*>} An array of services
- * @throws {Error} If the jobs are null or undefined
+ * Get the service designated by the job assigned to a node
+ * @param job
+ * @returns {Promise<*>} A service
+ * @throws {Error} If the job is null or undefined
  */
-export async function getAllServicesOfJobs (jobs: any[]) : Promise<any> {
-    if (jobs === undefined || jobs === null) throw new Error("No jobs specified");
-    const services = [];
-    for (const job of jobs) {
-        const service = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
-        const s = await prisma.services.findUnique({ where: { id: service.serviceId } });
-        if (s === undefined || s === null) throw new Error("Service not found");
-        services.push(s);
-    }
-    return services;
+export async function getServiceOfJob (job: any) : Promise<any> {
+    if (job === undefined || job === null) throw new Error("No job specified");
+
+    const service = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
+    const s = await prisma.services.findUnique({ where: { id: service.serviceId } });
+    if (s === undefined || s === null) throw new Error("Service not found");
+
+    return service;
 }
 
 /**

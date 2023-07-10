@@ -36,3 +36,17 @@ export async function sendMessage (number: string, message: string) : Promise<vo
 export async function sendEmail (email: string, message: string) : Promise<void> {
 
 }
+
+/**
+ * Send JSON data to main server
+ * @param {string} ip The IP of the main server
+ * @param {string} data The data to send
+ * @returns {Promise<void>}
+ * @throws {Error} If the IP is null or undefined
+ * @throws {Error} If the data is null or undefined
+ * @throws {Error} If the IP is not valid
+ * @throws {Error} If the IP is not reachable
+ */
+export async function sendDataToMainServer (ip: string, data: string) : Promise<void> {
+
+}

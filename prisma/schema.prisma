@@ -14,20 +14,22 @@ model Services {
   id      Int                  @id @default(autoincrement())
   name    String               @db.VarChar(255)
   portNo  Int                  @db.MediumInt
-  timeout Int                  @db.MediumInt
+  timeout Int                  @default(5000) @db.MediumInt
   servers ServicesOfServers[]
   objects ServicesAndObjects[]
 }
 
 enum ServerStatus {
-  NORMAL
-  NODE
+  Normal
+  Node
+  Central
 }
 
 model Servers {
   id       Int                 @id @default(autoincrement())
   ipAddr   String              @unique @db.VarChar(64)
-  type     ServerStatus        @default(NORMAL)
+  type     ServerStatus        @default(Normal)
+  port     Int?                @db.MediumInt
   services ServicesOfServers[]
 }
 

@@ -60,6 +60,7 @@ export async function getCentralServer () : Promise<any> {
  * @param port The port of the server (null if it's a node)
  * @returns {Promise<void>}
  * @throws {Error} If the ip is null or undefined
+ * @throws {Error} If the type is null or undefined
  * @throws {Error} If the server is already in the database
  */
 export async function addServerToDatabase (ip: string, type: string, port: number | null) : Promise<void> {

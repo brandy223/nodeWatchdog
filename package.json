@@ -15,7 +15,8 @@
     "node-fetch": "^2.6.1",
     "pg": "^8.11.1",
     "ping": "^0.4.4",
-    "prisma": "^4.16.2"
+    "prisma": "^4.16.2",
+    "socket.io-client": "^4.7.1"
   },
   "scripts": {
     "dev": "npx nodemon",

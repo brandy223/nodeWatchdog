@@ -1,6 +1,11 @@
 
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+
+const prisma = new PrismaClient(
+    {
+        // log: ["query", "info", "warn", "error"],
+    },
+);
 
 /**
  * Check if a server exists in the database
@@ -43,14 +48,15 @@ export async function getServerByIP (ip: string) : Promise<any> {
 }
 
 /**
- * Get Central Server
- * @returns {Promise<*>} The central server
- * @throws {Error} If the central server is not in the database
+ * Get Node servers
+ * @param type The type of the server (Central or Node)
+ * @returns {Promise<*>} Array of node servers
+ * @throws {Error} No node servers in the database
  */
-export async function getCentralServer () : Promise<any> {
-    const centralServer = prisma.servers.findFirst({where: {type: "Central"}});
-    if (centralServer === undefined || centralServer === null) throw new Error("Central server is not in database");
-    return centralServer;
+export async function getServerByType (type: string) : Promise<any> {
+    const nodeServers = await prisma.servers.findMany({where: {type: type}});
+    if (nodeServers === undefined || nodeServers === null) throw new Error("No node servers in database");
+    return nodeServers;
 }
 
 /**
@@ -58,12 +64,14 @@ export async function getCentralServer () : Promise<any> {
  * @param ip The ip of the server
  * @param type The type of the server (CENTRAL or NODE)
  * @param port The port of the server (null if it's a node)
+ * @param priority The priority of the server (null if it's a node,
+ * 1 if it's the central server,0 if it's the backup central server)
  * @returns {Promise<void>}
  * @throws {Error} If the ip is null or undefined
  * @throws {Error} If the type is null or undefined
  * @throws {Error} If the server is already in the database
  */
-export async function addServerToDatabase (ip: string, type: string, port: number | null) : Promise<void> {
+export async function addServerToDatabase (ip: string, type: string, port: number | null, priority: null) : Promise<void> {
     if (ip === undefined || ip === null) throw new Error("IP is null or undefined");
     if (type === undefined || type === null) throw new Error("Type is null or undefined");
     if (await isServerInDatabase(ip)) throw new Error("Server is already in database");
@@ -71,27 +79,34 @@ export async function addServerToDatabase (ip: string, type: string, port: numbe
         data: {
             ipAddr: ip,
             type: type,
-            port: port
+            port: port,
+            priority: priority
         }
     });
 }
 
 /**
- * Update server's type
+ * Update server's info
  * @param ip The ip of the server
  * @param type The type of the server (CENTRAL or NODE)
+ * @param port The port of the server (null if it's a node)
+ * @param priority The priority of the server (null if it's a node)
  * @returns {Promise<void>}
  * @throws {Error} If the ip is null or undefined
  * @throws {Error} If the type is null or undefined
  * @throws {Error} If the server is not in the database
  */
-export async function updateServerType (ip: string, type: string) : Promise<void> {
+export async function updateServer (ip: string, type: string, port: number | null, priority: number | null) : Promise<void> {
     if (ip === undefined || ip === null) throw new Error("IP is null or undefined");
     if (type === undefined || type === null) throw new Error("Type is null or undefined");
     if (!await isServerInDatabase(ip)) throw new Error("Server is not in database");
     await prisma.servers.update({
         where: { ipAddr: ip },
-        data: { type: type }
+        data: {
+            type: type,
+            port: port,
+            priority: priority
+        }
     });
 }
 

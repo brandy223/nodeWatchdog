@@ -18,6 +18,7 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
                 if (!ping) status = "KO";
                 const res = await Message.makeServerPingJSON(server, status);
                 await Message.sendDataToMainServer(res);
+                console.log("Message sent to main server :");
                 console.log(res);
             }
         }

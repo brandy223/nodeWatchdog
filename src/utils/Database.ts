@@ -1,6 +1,7 @@
 
 const { PrismaClient } = require('@prisma/client');
 const Network = require('./Network');
+const theme = require('./ColorScheme').theme;
 
 const prisma = new PrismaClient(
     {
@@ -174,20 +175,20 @@ export async function getCurrentCentralServer(): Promise<any> {
     const centralServer = await getServerByType("Central");
     if (centralServer === undefined || centralServer === null) throw new Error("Central server not found");
     const mainServer = centralServer.filter((server: any) => server.priority === 1)
-    console.log(`Central server IP: ${mainServer[0].ipAddr}`);
+    console.log(theme.info(`Central server IP: ${mainServer[0].ipAddr}`));
 
     // PING CENTRAL SERVER
     const isCentralServerAlive = await Network.ping(mainServer[0].ipAddr);
     if (isCentralServerAlive) {
-        console.log(`Central server is alive`);
+        console.log(theme.success(`Central server is alive`));
         return mainServer[0];
     }
 
-    console.log(`Central server is not alive, trying to connect to backup server`);
+    console.log(theme.warning(`Central server is not alive, trying to connect to backup server`));
     const backupServer = centralServer.filter((server: any) => server.priority === 0)
     const isBackupServerAlive = await Network.pingServers([backupServer[0].ipAddr]);
     if (!isBackupServerAlive) throw new Error("Backup central server is not alive");
-    console.log(`Backup server: ${JSON.stringify(backupServer)}`);
+    console.log(theme.info(`Backup server: ${JSON.stringify(backupServer)}`));
 
     return backupServer[0];
 }

@@ -12,7 +12,7 @@ export async function getLocalIP () : Promise<string> {
 
 /**
  * Ping an IP Address
- * @param ip
+ * @param {string} ip
  * @returns {Promise<boolean>} True if the IP Address is reachable, false otherwise
  * @throws {Error} If the ip is null or undefined
  */
@@ -25,7 +25,7 @@ export async function ping (ip: string) : Promise<boolean> {
 
 /**
  * Ping all the IP Addresses in the list with an interval of 10 seconds between each ping and a timeout of 5 seconds
- * @param ipList The list of IP Addresses to ping
+ * @param {string[]} ipList The list of IP Addresses to ping
  * @returns {Promise<string[]>} The list of reachable IP Addresses
  * @throws {Error} If the ipList is null or undefined
  */

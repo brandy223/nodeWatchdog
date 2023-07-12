@@ -1,10 +1,11 @@
 
 const Network = require('./Network');
 const Message = require('./Message');
+const theme = require('./ColorScheme').theme;
 
 /**
  * Make an array that contains ping functions
- * @param servers Array of servers
+ * @param {any} servers Array of servers
  * @return {Promise<any[]>} Array of ping functions
  */
 export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
@@ -14,11 +15,10 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
             return async () => {
                 let status: string = "OK";
                 const ping = await Network.ping(ip);
-                console.log(`Ping ${ip}: ${ping}`);
                 if (!ping) status = "KO";
                 const res = await Message.makeServerPingJSON(server, status);
                 await Message.sendDataToMainServer(res);
-                console.log("Message sent to main server :");
+                console.log(theme.infoBright("Message sent to main server :"));
                 console.log(res);
             }
         }
@@ -27,3 +27,15 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
     }
     return pingFunctions;
 }
+
+/**
+ * Make an array that contains systemctl test functions for each service
+ * @param {any} services Array of services
+ * @return {Promise<any[]>} Array of systemctl test functions
+ */
+// export async function systemctlTestFunctionsInArray(services: any[]): Promise<any[]> {
+//     const systemctlTestFunctions: (() => void)[] = [];
+//     for (const service of services) {
+//
+//     }
+// }

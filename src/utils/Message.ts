@@ -3,6 +3,7 @@ import {stringify} from "querystring";
 
 const Database = require('./Database');
 const io= require('socket.io-client');
+const theme = require('./ColorScheme').theme;
 
 /**
  * Verify if someone is free to receive a message
@@ -45,8 +46,8 @@ export async function sendEmail (email: string, message: string) : Promise<void>
 
 /**
  * Make a JSON object that contains the id of the server, its IP address and its status
- * @param server The server object
- * @param status The status of the server
+ * @param {any} server The server object
+ * @param {string} status The status of the server
  * @returns {any} The JSON object
  * @throws {Error} If the server is null or undefined
  * @throws {Error} If the server does not have an id
@@ -64,6 +65,27 @@ export function makeServerPingJSON (server: any, status: string) : any {
 }
 
 /**
+ * Make a JSON object that contains the id of the service, the server IP hosted on and its status
+ * @param {any} service The service object
+ * @param {string} ip The IP address of the server
+ * @param {string} name The name of the service
+ * @param {string} status The status of the service
+ * @returns {any} The JSON object
+ * @throws {Error} If the service is null or undefined
+ * @throws {Error} If the service does not have an id
+ */
+export function makeServiceTestJSON (service: any, ip: string, name: string, status: string) : any {
+if (service === undefined || service === null) throw new Error("Service is null or undefined");
+    if (service.id === undefined || service.id === null) throw new Error("Service does not have an id");
+    return {
+        id: service.id,
+        serverIp: ip,
+        name: name,
+        status: status
+    };
+}
+
+/**
  * Send JSON data to main server
  * @param {any} data The data to send
  * @returns {Promise<void>}
@@ -75,7 +97,7 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
 
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
         reconnection: true,
-        cors: {        //   credentials: true,
+        cors: {
             origin: stringify(centralServer.ipAddr),
             methods: ['GET', 'POST']
         },
@@ -85,15 +107,29 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
     });
 
     socket.on("error", function () {
-        console.log("Sorry, there seems to be an issue with the connection!");
+        console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
     });
 
     socket.on("connect_error", function (err: Error) {
-        console.error("connect failed " + err);
+        console.error(theme.error("connection failed: " + err));
     });
 
     socket.on('connect', () => {
-        console.log(socket.id);
+        // console.log(theme.success("Connexion to main server established"));
+        // console.log(theme.successBright("Connexion to main server established"));
+        // console.log(theme.bgSuccess("Connexion to main server established"));
+        // console.log(theme.error("Connexion to main server established"));
+        // console.log(theme.errorBright("Connexion to main server established"));
+        // console.log(theme.bgError("Connexion to main server established"));
+        // console.log(theme.warning("Connexion to main server established"));
+        // console.log(theme.warningBright("Connexion to main server established"));
+        // console.log(theme.bgWarning("Connexion to main server established"));
+        // console.log(theme.info("Connexion to main server established"));
+        // console.log(theme.infoBright("Connexion to main server established"))
+        // console.log(theme.bgInfo("Connexion to main server established"));
+        // console.log(theme.debug("Connexion to main server established"));
+        // console.log(theme.debugBright("Connexion to main server established"));
+        // console.log(theme.bgDebug("Connexion to main server established"));
         socket.emit('message', data);
         socket.close();
     });

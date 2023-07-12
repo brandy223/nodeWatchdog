@@ -1,3 +1,9 @@
+
+import {stringify} from "querystring";
+
+const Database = require('./Database');
+const io= require('socket.io-client');
+
 /**
  * Verify if someone is free to receive a message
  * @param {number} id The id of the person
@@ -38,15 +44,57 @@ export async function sendEmail (email: string, message: string) : Promise<void>
 }
 
 /**
- * Send JSON data to main server
- * @param {string} ip The IP of the main server
- * @param {string} data The data to send
- * @returns {Promise<void>}
- * @throws {Error} If the IP is null or undefined
- * @throws {Error} If the data is null or undefined
- * @throws {Error} If the IP is not valid
- * @throws {Error} If the IP is not reachable
+ * Make a JSON object that contains the id of the server, its IP address and its status
+ * @param server The server object
+ * @param status The status of the server
+ * @returns {any} The JSON object
+ * @throws {Error} If the server is null or undefined
+ * @throws {Error} If the server does not have an id
+ * @throws {Error} If the server does not have an ipAddr
  */
-export async function sendDataToMainServer (ip: string, data: string) : Promise<void> {
+export function makeServerPingJSON (server: any, status: string) : any {
+    if (server === undefined || server === null) throw new Error("Server is null or undefined");
+    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
+    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
+    return {
+        id: server.id,
+        ipAddr: server.ipAddr,
+        status: status
+    };
+}
 
+/**
+ * Send JSON data to main server
+ * @param {any} data The data to send
+ * @returns {Promise<void>}
+ * @throws {Error} If the data is null or undefined
+ */
+export async function sendDataToMainServer (data: any) : Promise<void> {
+    if (data === undefined || data === null) throw new Error("Data is null or undefined");
+    const centralServer = await Database.getCurrentCentralServer();
+
+    const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
+        reconnection: true,
+        cors: {        //   credentials: true,
+            origin: stringify(centralServer.ipAddr),
+            methods: ['GET', 'POST']
+        },
+        withCredentials: true,
+        transports: ["polling"],
+        allowEIO3: true, // false by default
+    });
+
+    socket.on("error", function () {
+        console.log("Sorry, there seems to be an issue with the connection!");
+    });
+
+    socket.on("connect_error", function (err: Error) {
+        console.error("connect failed " + err);
+    });
+
+    socket.on('connect', () => {
+        console.log(socket.id);
+        socket.emit('message', data);
+        socket.close();
+    });
 }

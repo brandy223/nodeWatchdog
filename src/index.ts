@@ -1,8 +1,9 @@
 
-const Network = require('./utils/Network')
-const Database = require('./utils/Database')
-const Timer = require('./utils/Timer')
-const Services = require('./utils/Services')
+const Network = require('./utils/Network');
+const Database = require('./utils/Database');
+const Timer = require('./utils/Timer');
+const Services = require('./utils/Services');
+const Systemctl = require('./services/BasicServices');
 
 /**
  * Main function
@@ -21,8 +22,10 @@ async function main (): Promise<void> {
     if (servers.length === 0) throw new Error("No servers found");
     console.log(`Servers: ${JSON.stringify(servers)}`);
 
-    const pingWrapper = await Services.pingFunctionsInArray(servers);
-    Timer.executeTimedTask(pingWrapper, [5000, 2000], [0, 0]);
+    // const pingWrapper = await Services.pingFunctionsInArray(servers);
+    // Timer.executeTimedTask(pingWrapper, [10000, 10000], [0, 0]);
+
+    await Systemctl.isServiceActive({ipAddr: "192.168.10.44", user: "brandan"}, {name: "mysql"});
 }
 
 main()

@@ -1,15 +1,14 @@
 /**
  * Execute a timed task
- * @param functions
- * @param intervals
- * @param timeouts
+ * @param {any[]} functions
+ * @param {number[]} intervals
+ * @param {number[]} timeouts
  * @return {void}
  * @throws {Error} If the number of functions, intervals and timeouts is not the same
  */
 export function executeTimedTask(functions: (() => void)[], intervals: number[], timeouts: number[]): void {
-    if (functions.length !== intervals.length || functions.length !== timeouts.length) {
+    if (functions.length !== intervals.length || functions.length !== timeouts.length)
         throw new Error("The number of functions, intervals and timeouts must be the same");
-    }
 
     for (let i = 0; i < functions.length; i++) {
         const fct = functions[i];
@@ -17,7 +16,6 @@ export function executeTimedTask(functions: (() => void)[], intervals: number[],
         const timeout = timeouts[i];
 
         setInterval(() => {
-            console.log(fct);
             fct();
         }, interval);
 

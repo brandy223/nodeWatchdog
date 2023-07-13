@@ -4,7 +4,7 @@ const Database = require('./utils/Database');
 const Timer = require('./utils/Timer');
 const Services = require('./utils/Services');
 const Systemctl = require('./services/BasicServices');
-
+const ping = require('ping');
 /**
  * Main function
  */
@@ -23,9 +23,31 @@ async function main (): Promise<void> {
     console.log(`Servers: ${JSON.stringify(servers)}`);
 
     // const pingWrapper = await Services.pingFunctionsInArray(servers);
-    // Timer.executeTimedTask(pingWrapper, [10000, 10000], [0, 0]);
+    // Timer.executeTimedTask(pingWrapper, [5000], [0]);
 
-    await Systemctl.isServiceActive({ipAddr: "192.168.10.44", user: "brandan"}, {name: "mysql"});
+    // const test = await Systemctl.isServiceActive({ipAddr: "192.168.10.44", user: "brandan"}, {name: "mysql"});
+    // console.log(test);
+
+    // GET ALL SERVICES
+    const services = await Database.getServicesOfJobs(jobs);
+    console.log(`Services: ${JSON.stringify(services)}`);
+
+    const testWrapper = await Services.systemctlTestFunctionsInArray(
+        [{
+            server: {
+                id: 1,
+                user: "brandan",
+                ipAddr: "192.168.10.44"
+            },
+            service: {
+                id: 1,
+                name: "mysql"
+            }
+        }]
+    );
+    const test = await Timer.executeTimedTask(testWrapper, [5000], [0]);
+    await sleep(11000);
+    Timer.clearAllIntervals(test);
 }
 
 main()
@@ -50,4 +72,10 @@ async function nodeServerDatabaseInit(): Promise<string> {
     }
 
     return ip;
+}
+
+function sleep(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
 }

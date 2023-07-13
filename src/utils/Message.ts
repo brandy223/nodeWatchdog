@@ -71,20 +71,31 @@ export function makeServerPingJSON (server: any, status: string, pingInfo: strin
 /**
  * Make a JSON object that contains the id of the service, the server IP hosted on and its status
  * @param {any} service The service object
- * @param {string} ip The IP address of the server
- * @param {string} name The name of the service
- * @param {string} status The status of the service
+ * @param {any} server The server object
+ * @param {string[]} status The status of the service
  * @returns {any} The JSON object
  * @throws {Error} If the service is null or undefined
  * @throws {Error} If the service does not have an id
+ * @throws {Error} If the server is null or undefined
+ * @throws {Error} If the server does not have an id
+ * @throws {Error} If the server does not have an ipAddr
  */
-export function makeServiceTestJSON (service: any, ip: string, name: string, status: string) : any {
-if (service === undefined || service === null) throw new Error("Service is null or undefined");
+export function makeServiceTestJSON (service: any, server: any, status: string) : any {
+    if (service === undefined || service === null) throw new Error("Service is null or undefined");
     if (service.id === undefined || service.id === null) throw new Error("Service does not have an id");
+    if (server === undefined || server === null) throw new Error("Server is null or undefined");
+    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
+    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
+
     return {
-        id: service.id,
-        serverIp: ip,
-        name: name,
+        service: {
+            id: service.id,
+            name: service.name,
+        },
+        server: {
+            id: server.id,
+            ipAddr: server.ipAddr
+        },
         status: status
     };
 }

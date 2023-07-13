@@ -13,14 +13,14 @@ export async function getLocalIP () : Promise<string> {
 /**
  * Ping an IP Address
  * @param {string} ip
- * @returns {Promise<boolean>} True if the IP Address is reachable, false otherwise
- * @throws {Error} If the ip is null or undefined
+ * @returns {Promise<string[]>} True if the IP Address is reachable, false otherwise
  */
-export async function ping (ip: string) : Promise<boolean> {
-    if (ip === undefined || ip === null) throw new Error("IP is null or undefined");
+export async function ping (ip: string) : Promise<string[]> {
     const ping = require('ping');
     const res = await ping.promise.probe(ip);
-    return res.alive;
+    const output = extractPingInfo(res.output);
+    output.unshift(res.alive.toString());
+    return output;
 }
 
 /**
@@ -37,10 +37,8 @@ export function extractPingInfo (pingOutput: string) : string[] {
  * Ping all the IP Addresses in the list with an interval of 10 seconds between each ping and a timeout of 5 seconds
  * @param {string[]} ipList The list of IP Addresses to ping
  * @returns {Promise<string[]>} The list of reachable IP Addresses
- * @throws {Error} If the ipList is null or undefined
  */
 export async function pingServers (ipList: string[]) : Promise<string[]> {
-    if (ipList === undefined || ipList === null) throw new Error("IP List is null or undefined");
     const reachableIPList = [];
     for (const ip of ipList) {
         if (await ping(ip)) reachableIPList.push(ip);

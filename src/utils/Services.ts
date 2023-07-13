@@ -15,10 +15,10 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
             return async () => {
                 let status: string = "OK";
                 const ping = await Network.ping(ip);
-                if (!ping) status = "KO";
-                const res = await Message.makeServerPingJSON(server, status);
+                if (!Boolean(ping.shift())) status = "KO";
+                const res = await Message.makeServerPingJSON(server, status, ping);
                 await Message.sendDataToMainServer(res);
-                console.log(theme.infoBright("Message sent to main server :"));
+                console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
             }
         }

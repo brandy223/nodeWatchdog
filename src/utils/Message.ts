@@ -48,19 +48,23 @@ export async function sendEmail (email: string, message: string) : Promise<void>
  * Make a JSON object that contains the id of the server, its IP address and its status
  * @param {any} server The server object
  * @param {string} status The status of the server
+ * @param {string[]} pingInfo Information about the ping
  * @returns {any} The JSON object
  * @throws {Error} If the server is null or undefined
  * @throws {Error} If the server does not have an id
  * @throws {Error} If the server does not have an ipAddr
+ * @throws {Error} If the pingInfo is empty
  */
-export function makeServerPingJSON (server: any, status: string) : any {
+export function makeServerPingJSON (server: any, status: string, pingInfo: string[]) : any {
     if (server === undefined || server === null) throw new Error("Server is null or undefined");
     if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
     if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
+    if (pingInfo.length === 0) throw new Error("Ping info is empty");
     return {
         id: server.id,
         ipAddr: server.ipAddr,
-        status: status
+        status: status,
+        pingInfo: pingInfo
     };
 }
 
@@ -115,22 +119,12 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
     });
 
     socket.on('connect', () => {
-        // console.log(theme.success("Connexion to main server established"));
-        // console.log(theme.successBright("Connexion to main server established"));
-        // console.log(theme.bgSuccess("Connexion to main server established"));
-        // console.log(theme.error("Connexion to main server established"));
-        // console.log(theme.errorBright("Connexion to main server established"));
-        // console.log(theme.bgError("Connexion to main server established"));
-        // console.log(theme.warning("Connexion to main server established"));
-        // console.log(theme.warningBright("Connexion to main server established"));
-        // console.log(theme.bgWarning("Connexion to main server established"));
-        // console.log(theme.info("Connexion to main server established"));
-        // console.log(theme.infoBright("Connexion to main server established"))
-        // console.log(theme.bgInfo("Connexion to main server established"));
-        // console.log(theme.debug("Connexion to main server established"));
-        // console.log(theme.debugBright("Connexion to main server established"));
-        // console.log(theme.bgDebug("Connexion to main server established"));
         socket.emit('message', data);
-        socket.close();
+        socket.on("broadcast", function (message: object) {
+            // console.log(theme.error("Server's message broadcast : " + data));
+            console.log(theme.bgWarning("Server's message broadcast :"));
+            console.log(message);
+            socket.close();
+        });
     });
 }

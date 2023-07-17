@@ -192,3 +192,28 @@ export async function getCurrentCentralServer(): Promise<any> {
 
     return backupServer[0];
 }
+
+/**
+ * Initialize node server in database
+ */
+export async function nodeServerDatabaseInit(): Promise<string> {
+    // GET LOCAL IP
+    const ip = await Network.getLocalIP();
+    if (ip === undefined)  throw new Error("Could not get local IP");
+    else
+        console.log(`Local IP: ${ip}`);
+
+    // VERIFY NODE EXISTS IN DATABASE
+    if (!await isServerInDatabase(ip)) {
+        await addServerToDatabase(ip, "Node", null, null);
+        console.log(`Added node server to database`);
+    }
+    else {
+        const isServerANode = await isServerANode(ip);
+        if(!isServerANode) {
+            await updateServer(ip, "Node", null, null);
+        }
+    }
+
+    return ip;
+}

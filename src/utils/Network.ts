@@ -50,15 +50,3 @@ export async function pingServers (ipList: string[]) : Promise<string[]> {
     }
     return reachableIPList;
 }
-
-/**
- * Execute pingServers function with interval and store its value in cache
- * @param {string[]} ipList The list of IP Addresses to ping
- * @param {number} interval The interval between each ping
- */
-export async function pingServersWithInterval(ipList: string[], interval: number): Promise<void> {
-    const intervalId = setInterval(async () => {
-        const reachableServers = await pingServers(ipList);
-        cache.set("reachableServers", reachableServers, interval + 10000);
-    }, interval);
-}

@@ -1,7 +1,5 @@
-import io from "socket.io-client";
-import {stringify} from "querystring";
-import {theme} from "./utils/ColorScheme";
 
+const io= require('socket.io-client');
 const NodeCache = require("node-cache");
 export const cache = new NodeCache({
     stdTTL: 30,
@@ -12,140 +10,129 @@ const Network = require('./utils/Network');
 const Database = require('./utils/Database');
 const Timer = require('./utils/Timer');
 const Services = require('./utils/Services');
+const theme = require('./utils/ColorScheme').theme;
 
 /**
  * Main function
  */
 async function main (): Promise<void> {
     const ip: string = await Database.nodeServerDatabaseInit();
+    const centralServer = await Database.getCurrentCentralServer();
 
     // GET ALL JOBS
     let jobs = await Database.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
-    console.log(`Jobs: ${JSON.stringify(jobs)}`);
+    console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
+    cache.set("jobs", jobs, 60*60);
 
     // GET ALL SERVERS
     let servers = await Database.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
-    console.log(`Servers: ${JSON.stringify(servers)}`);
+    console.log(theme.debug(`Servers: ${JSON.stringify(servers)}`));
+    cache.set("servers", servers, 60*60);
 
-    // GET ALL SERVICES
-    let services = await Database.getServicesOfJobs(jobs);
-    console.log(`Services: ${JSON.stringify(services)}`);
+    // PING SERVERS
+    let pingWrapper = await Services.pingFunctionsInArray(servers);
+    let pingTasks = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
 
-    setInterval(async () => {
+    // GET ALL REACHABLE SERVERS
+    let serversIps = servers.map((server: any) => server.ipAddr);
+    let reachableServersIps = await Network.pingServers(serversIps);
+    if (reachableServersIps.length === 0) throw new Error("No reachable servers found");
+    console.log(theme.debug(`Reachable servers: ${JSON.stringify(reachableServersIps)}`));
+
+    // GET ALL SERVICES FROM REACHABLE SERVERS
+    let toDo = await Database.getAllServersAndServicesIdsOfJobs(jobs);
+    let reachableServers = await Database.getServersByIP(reachableServersIps);
+    toDo.filter((server: any) => reachableServers.includes(server.id));
+
+    // TEST SERVICES
+    let servicesWrapper = await Services.systemctlTestFunctionsInArray(toDo);
+    let servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
+
+    // REFRESH FUNCTIONS
+    const jobsInterval = async () => {
         const jobs = await Database.getAllJobsOfNode(ip);
         if (jobs.length === 0) throw new Error("No jobs found");
         cache.set("jobs", jobs, 60*60)
-        console.log(`Jobs: ${JSON.stringify(jobs)}`);
-    }, 5*60*1000);
-    setInterval(async () => {
+        console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
+    }
+    const serversInterval = async () => {
         const jobs: any[] = cache.get("jobs");
         const servers = await Database.getServersOfJobs(jobs);
         if (servers.length === 0) throw new Error("No servers found");
         cache.set("servers", servers, 60*60)
-        console.log(`Servers: ${JSON.stringify(servers)}`);
-    }, 5*60*1000);
-    setInterval(async () => {
-        const jobs: any[] = cache.get("jobs");
-        const services = await Database.getServicesOfJobs(jobs);
-        cache.set("services", services, 60*60)
-        console.log(`Services: ${JSON.stringify(services)}`);
-    }, 5*60*1000);
+        console.log(theme.debug(`Servers: ${JSON.stringify(servers)}`));
+    }
+    const mainIntervals: any[] = await Timer.executeTimedTask(
+        [jobsInterval, serversInterval],
+        // [5*60*1000, 5*60*1000, 5*60*1000],
+        [5000, 5000],
+        [10000, 10000]
+    );
 
-    // PING SERVERS
-    // const pingWrapper = await Services.pingFunctionsInArray(servers);
-    // await Timer.executeTimedTask(pingWrapper, [5000], [10000]);
-    //
-    // const serversIps = servers.map((server: any) => server.ipAddr);
-    // await Network.pingServersWithInterval(serversIps, 5000);
-    //
-    // setInterval(() => {
-    //     console.log(cache.get("reachableServers"));
-    // }, 5000);
+    // MAIN SOCKET FOR CENTRAL SERVER BROADCAST
+    const mainSocket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
+        reconnection: true,
+        cors: {
+            origin: centralServer.ipAddr,
+            methods: ['GET', 'POST']
+        },
+        withCredentials: true,
+        transports: ["polling"],
+        allowEIO3: true, // false by default
+    });
 
+    mainSocket.on("error", function () {
+        console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
+    });
 
-    // const testWrapper = await Services.systemctlTestFunctionsInArray(
-    //     [{
-    //         server: {
-    //             id: 1,
-    //             user: "brandan",
-    //             ipAddr: "192.168.10.44"
-    //         },
-    //         service: {
-    //             id: 1,
-    //             name: "mysql"
-    //         }
-    //     }]
-    // );
-    // const test = await Timer.executeTimedTask(testWrapper, [5000], [0]);
-    // Timer.clearAllIntervals(test);
+    mainSocket.on("connect_error", function (err: Error) {
+        console.error(theme.error("connection failed: " + err));
+    });
 
-    // const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
-    //     reconnection: true,
-    //     cors: {
-    //         origin: stringify(centralServer.ipAddr),
-    //         methods: ['GET', 'POST']
-    //     },
-    //     withCredentials: true,
-    //     transports: ["polling"],
-    //     allowEIO3: true, // false by default
-    // });
-    //
-    // socket.on("error", function () {
-    //     console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
-    // });
-    //
-    // socket.on("connect_error", function (err: Error) {
-    //     console.error(theme.error("connection failed: " + err));
-    // });
-    //
-    // socket.on('connect', () => {
-    //     socket.emit('message', data);
-    //     socket.on("broadcast", function (message: object) {
-    //         // console.log(theme.error("Server's message broadcast : " + data));
-    //         console.log(theme.bgWarning("Server's message broadcast :"));
-    //         console.log(message);
-    //         socket.close();
-    //     });
-    // });
+    mainSocket.on('connect', () => {
+        mainSocket.emit('main_connection', ip);
 
-    cache.on("set", (key: string, value: any[]) => {
+        mainSocket.on("main_connection_ack", (message: string) => {
+           console.log(theme.bgSuccess("Central Server Main Connection ACK : " + message));
+        });
+
+        mainSocket.on("room_broadcast", (message: object) => {
+            console.log(theme.bgWarning("Central Server's broadcast :"));
+            console.log(message);
+        });
+    });
+
+    // CACHE EVENTS
+    cache.on("set", async (key: string, value: any[]) => {
         switch(key) {
             case "jobs":
                 jobs = value;
-                console.log("Jobs updated");
+                // TODO: Need to refresh all values
+                console.log("Jobs refreshed");
                 break;
             case "servers":
                 servers = value;
-                console.log("Servers updated");
-                break;
-            case "services":
-                services = value;
-                console.log("Services updated");
+                console.log("Servers refreshed");
                 break;
         }
     });
 
     cache.on("expired", async (key: string) => {
         console.log(`Cache expired: ${key}`);
-        const jobs = await Database.getAllJobsOfNode(ip);
+        const newJobs = await Database.getAllJobsOfNode(ip);
         switch (key) {
             case "jobs":
-                if (jobs.length === 0) throw new Error("No jobs found");
-                cache.set("jobs", jobs, 60*60)
-                console.log(`Jobs: ${JSON.stringify(jobs)}`);
+                if (newJobs.length === 0) throw new Error("No jobs found");
+                cache.set("jobs", newJobs, 60*60)
+                console.log(`Jobs: ${JSON.stringify(newJobs)}`);
                 break;
             case "servers":
-                const servers = await Database.getServersOfJobs(jobs);
-                if (servers.length === 0) throw new Error("No servers found");
-                cache.set("servers", servers, 60*60)
-                console.log(`Servers: ${JSON.stringify(servers)}`);
-                break;
-            case "services":
-                const services = await Database.getServicesOfJobs(jobs);
-                cache.set("services", services, 60*60)
-                console.log(`Services: ${JSON.stringify(services)}`);
+                const newServers = await Database.getServersOfJobs(newJobs);
+                if (newServers.length === 0) throw new Error("No servers found");
+                cache.set("servers", newServers, 60*60)
+                console.log(`Servers: ${JSON.stringify(newServers)}`);
                 break;
         }
     });

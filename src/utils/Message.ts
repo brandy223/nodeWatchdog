@@ -45,62 +45,6 @@ export async function sendEmail (email: string, message: string) : Promise<void>
 }
 
 /**
- * Make a JSON object that contains the id of the server, its IP address and its status
- * @param {any} server The server object
- * @param {string} status The status of the server
- * @param {string[]} pingInfo Information about the ping
- * @returns {any} The JSON object
- * @throws {Error} If the server is null or undefined
- * @throws {Error} If the server does not have an id
- * @throws {Error} If the server does not have an ipAddr
- * @throws {Error} If the pingInfo is empty
- */
-export function makeServerPingJSON (server: any, status: string, pingInfo: string[]) : any {
-    if (server === undefined || server === null) throw new Error("Server is null or undefined");
-    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
-    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
-    if (pingInfo.length === 0) throw new Error("Ping info is empty");
-    return {
-        id: server.id,
-        ipAddr: server.ipAddr,
-        status: status,
-        pingInfo: pingInfo
-    };
-}
-
-/**
- * Make a JSON object that contains the id of the service, the server IP hosted on and its status
- * @param {any} service The service object
- * @param {any} server The server object
- * @param {string[]} status The status of the service
- * @returns {any} The JSON object
- * @throws {Error} If the service is null or undefined
- * @throws {Error} If the service does not have an id
- * @throws {Error} If the server is null or undefined
- * @throws {Error} If the server does not have an id
- * @throws {Error} If the server does not have an ipAddr
- */
-export function makeServiceTestJSON (service: any, server: any, status: string) : any {
-    if (service === undefined || service === null) throw new Error("Service is null or undefined");
-    if (service.id === undefined || service.id === null) throw new Error("Service does not have an id");
-    if (server === undefined || server === null) throw new Error("Server is null or undefined");
-    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
-    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
-
-    return {
-        service: {
-            id: service.id,
-            name: service.name,
-        },
-        server: {
-            id: server.id,
-            ipAddr: server.ipAddr
-        },
-        status: status
-    };
-}
-
-/**
  * Send JSON data to main server
  * @param {any} data The data to send
  * @returns {Promise<void>}

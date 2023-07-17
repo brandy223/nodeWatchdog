@@ -1,81 +1,131 @@
+import io from "socket.io-client";
+import {stringify} from "querystring";
+import {theme} from "./utils/ColorScheme";
 
+const NodeCache = require("node-cache");
+export const cache = new NodeCache({
+    stdTTL: 30,
+    checkperiod: 60,
+    deleteOnExpire: true,
+});
 const Network = require('./utils/Network');
 const Database = require('./utils/Database');
 const Timer = require('./utils/Timer');
 const Services = require('./utils/Services');
-const Systemctl = require('./services/BasicServices');
-const ping = require('ping');
+
 /**
  * Main function
  */
 async function main (): Promise<void> {
-    const ip: string = await nodeServerDatabaseInit();
+    const ip: string = await Database.nodeServerDatabaseInit();
 
     // GET ALL JOBS
-    const jobs = await Database.getAllJobsOfNode(ip);
+    let jobs = await Database.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
-    else
-        console.log(`Jobs: ${JSON.stringify(jobs)}`);
+    console.log(`Jobs: ${JSON.stringify(jobs)}`);
 
-    // // GET ALL SERVERS IP
-    const servers = await Database.getServersOfJobs(jobs);
+    // GET ALL SERVERS
+    let servers = await Database.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
     console.log(`Servers: ${JSON.stringify(servers)}`);
 
-    // const pingWrapper = await Services.pingFunctionsInArray(servers);
-    // Timer.executeTimedTask(pingWrapper, [5000], [0]);
-
-    // const test = await Systemctl.isServiceActive({ipAddr: "192.168.10.44", user: "brandan"}, {name: "mysql"});
-    // console.log(test);
-
     // GET ALL SERVICES
-    const services = await Database.getServicesOfJobs(jobs);
+    let services = await Database.getServicesOfJobs(jobs);
     console.log(`Services: ${JSON.stringify(services)}`);
 
-    const testWrapper = await Services.systemctlTestFunctionsInArray(
-        [{
-            server: {
-                id: 1,
-                user: "brandan",
-                ipAddr: "192.168.10.44"
-            },
-            service: {
-                id: 1,
-                name: "mysql"
-            }
-        }]
-    );
-    const test = await Timer.executeTimedTask(testWrapper, [5000], [0]);
-    await sleep(11000);
-    Timer.clearAllIntervals(test);
-}
+    setInterval(async () => {
+        const jobs = await Database.getAllJobsOfNode(ip);
+        if (jobs.length === 0) throw new Error("No jobs found");
+        cache.set("jobs", jobs, 60*60)
+        console.log(`Jobs: ${JSON.stringify(jobs)}`);
+    }, 5*60*1000);
+    setInterval(async () => {
+        const jobs: any[] = cache.get("jobs");
+        const servers = await Database.getServersOfJobs(jobs);
+        if (servers.length === 0) throw new Error("No servers found");
+        cache.set("servers", servers, 60*60)
+        console.log(`Servers: ${JSON.stringify(servers)}`);
+    }, 5*60*1000);
+    setInterval(async () => {
+        const jobs: any[] = cache.get("jobs");
+        const services = await Database.getServicesOfJobs(jobs);
+        cache.set("services", services, 60*60)
+        console.log(`Services: ${JSON.stringify(services)}`);
+    }, 5*60*1000);
 
-main()
+    // PING SERVERS
+    // const pingWrapper = await Services.pingFunctionsInArray(servers);
+    // await Timer.executeTimedTask(pingWrapper, [5000], [10000]);
+    //
+    // const serversIps = servers.map((server: any) => server.ipAddr);
+    // await Network.pingServersWithInterval(serversIps, 5000);
+    //
+    // setInterval(() => {
+    //     console.log(cache.get("reachableServers"));
+    // }, 5000);
 
-async function nodeServerDatabaseInit(): Promise<string> {
-    // GET LOCAL IP
-    const ip = await Network.getLocalIP();
-    if (ip === undefined)  throw new Error("Could not get local IP");
-    else
-        console.log(`Local IP: ${ip}`);
 
-    // VERIFY NODE EXISTS IN DATABASE
-    if (!await Database.isServerInDatabase(ip)) {
-        await Database.addServerToDatabase(ip, "Node", null, null);
-        console.log(`Added node server to database`);
-    }
-    else {
-        const isServerANode = await Database.isServerANode(ip);
-        if(!isServerANode) {
-            await Database.updateServer(ip, "Node", null, null);
+    // const testWrapper = await Services.systemctlTestFunctionsInArray(
+    //     [{
+    //         server: {
+    //             id: 1,
+    //             user: "brandan",
+    //             ipAddr: "192.168.10.44"
+    //         },
+    //         service: {
+    //             id: 1,
+    //             name: "mysql"
+    //         }
+    //     }]
+    // );
+    // const test = await Timer.executeTimedTask(testWrapper, [5000], [0]);
+    // Timer.clearAllIntervals(test);
+
+    // const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
+    //     reconnection: true,
+    //     cors: {
+    //         origin: stringify(centralServer.ipAddr),
+    //         methods: ['GET', 'POST']
+    //     },
+    //     withCredentials: true,
+    //     transports: ["polling"],
+    //     allowEIO3: true, // false by default
+    // });
+    //
+    // socket.on("error", function () {
+    //     console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
+    // });
+    //
+    // socket.on("connect_error", function (err: Error) {
+    //     console.error(theme.error("connection failed: " + err));
+    // });
+    //
+    // socket.on('connect', () => {
+    //     socket.emit('message', data);
+    //     socket.on("broadcast", function (message: object) {
+    //         // console.log(theme.error("Server's message broadcast : " + data));
+    //         console.log(theme.bgWarning("Server's message broadcast :"));
+    //         console.log(message);
+    //         socket.close();
+    //     });
+    // });
+
+    cache.on("set", (key: string, value: any[]) => {
+        switch(key) {
+            case "jobs":
+                jobs = value;
+                console.log("Jobs updated");
+                break;
+            case "servers":
+                servers = value;
+                console.log("Servers updated");
+                break;
+            case "services":
+                services = value;
+                console.log("Services updated");
+                break;
         }
-    }
-
-    return ip;
-}
-
-function sleep(ms: number) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
     });
 }
+
+main();

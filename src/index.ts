@@ -126,6 +126,29 @@ async function main (): Promise<void> {
                 break;
         }
     });
+
+    cache.on("expired", async (key: string) => {
+        console.log(`Cache expired: ${key}`);
+        const jobs = await Database.getAllJobsOfNode(ip);
+        switch (key) {
+            case "jobs":
+                if (jobs.length === 0) throw new Error("No jobs found");
+                cache.set("jobs", jobs, 60*60)
+                console.log(`Jobs: ${JSON.stringify(jobs)}`);
+                break;
+            case "servers":
+                const servers = await Database.getServersOfJobs(jobs);
+                if (servers.length === 0) throw new Error("No servers found");
+                cache.set("servers", servers, 60*60)
+                console.log(`Servers: ${JSON.stringify(servers)}`);
+                break;
+            case "services":
+                const services = await Database.getServicesOfJobs(jobs);
+                cache.set("services", services, 60*60)
+                console.log(`Services: ${JSON.stringify(services)}`);
+                break;
+        }
+    });
 }
 
 main();

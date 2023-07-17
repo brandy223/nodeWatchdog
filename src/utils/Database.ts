@@ -25,20 +25,40 @@ export async function isServerInDatabase (ip: string) : Promise<boolean> {
  * @returns {Promise<boolean>} True if the server is a node, false otherwise
  */
 export async function isServerANode (ip: string) : Promise<boolean> {
-    const server = await getServerByIP(ip);
+    const server = await getServersByIP([ip]);
     return server.type === "Node";
 }
 
 /**
- * Get server by ip
- * @param {string} ip The ip of the server
- * @returns {Promise<*>} The server
+ * Get servers by ids
+ * @param {number[]} ids Array ids of servers
+ * @returns {Promise<*>} The servers
  * @throws {Error} If the server is not in the database
  */
-export async function getServerByIP (ip: string) : Promise<any> {
-    const server = prisma.servers.findUnique({where: {ipAddr: ip}});
-    if (server === null) throw new Error("Server is not in database");
-    return server;
+export async function getServersById (ids: number[]) : Promise<any> {
+    const servers: any[] = [];
+    for (const id of ids) {
+        const server = await prisma.servers.findUnique({where: {id: id}});
+        if (server === null) throw new Error("Server is not in database");
+        servers.push(server);
+    }
+    return servers;
+}
+
+/**
+ * Get servers by ips
+ * @param {string[]} ips Array ips of servers
+ * @returns {Promise<*>} The servers
+ * @throws {Error} If the server is not in the database
+ */
+export async function getServersByIP (ips: string[]) : Promise<any> {
+    const servers: any[] = [];
+    for (const ip of ips) {
+        const server = await prisma.servers.findUnique({where: {ipAddr: ip}});
+        if (server === null) throw new Error("Server is not in database");
+        servers.push(server);
+    }
+    return servers;
 }
 
 /**
@@ -51,6 +71,22 @@ export async function getServerByType (type: string) : Promise<any> {
     const servers = await prisma.servers.findMany({where: {type: type}});
     if (servers.length === 0) throw new Error("No servers in database");
     return servers;
+}
+
+/**
+ * Get services by ids
+ * @param {number[]} ids Array ids of services
+ * @returns {Promise<*>} The services
+ * @throws {Error} If the service is not in the database
+ */
+export async function getServicesById (ids: number[]) : Promise<any> {
+    const services: any[] = [];
+    for (const id of ids) {
+        const service = await prisma.services.findUnique({where: {id: id}});
+        if (service === null) throw new Error("Service is not in database");
+        services.push(service);
+    }
+    return services;
 }
 
 /**
@@ -131,6 +167,20 @@ export async function getServicesOfJobs (jobs: any[]) : Promise<any> {
 }
 
 /**
+ * Get all servers and its services from jobs
+ * @param {any[]} jobs[] An array of jobs
+ * @returns {Promise<*>} An array of servers and its services
+ */
+export async function getAllServersAndServicesIdsOfJobs (jobs: any[]) : Promise<any> {
+    const results = [];
+    for (const job of jobs) {
+        const result = await prisma.servicesOfServers.findUnique({ where: { jobId: job.id } });
+        results.push(result);
+    }
+    return results;
+}
+
+/**
  * Get a service by id
  * @param {number} id The id of the service
  * @returns {Promise<*>} The job
@@ -150,8 +200,8 @@ export async function getServiceById (id: number) : Promise<any> {
 export async function getAllJobsOfNode (ip: string) : Promise<any> {
     if (!await isServerInDatabase(ip)) throw new Error("Server is not in database");
 
-    const server = await getServerByIP(ip);
-    const jobsId = await prisma.servicesOfServers.findMany({ where: { serverId: server.id, jobId: { not: null } } });
+    const server = (await getServersByIP([ip]))[0];
+    const jobsId = await prisma.serversOfJobs.findMany({ where: { serverId: server.id } });
     if (jobsId.length === 0) throw new Error("Server jobs not found");
 
     const jobs = [];
@@ -201,7 +251,7 @@ export async function nodeServerDatabaseInit(): Promise<string> {
     const ip = await Network.getLocalIP();
     if (ip === undefined)  throw new Error("Could not get local IP");
     else
-        console.log(`Local IP: ${ip}`);
+        console.log(theme.info(`Local IP: ${ip}`));
 
     // VERIFY NODE EXISTS IN DATABASE
     if (!await isServerInDatabase(ip)) {
@@ -209,8 +259,7 @@ export async function nodeServerDatabaseInit(): Promise<string> {
         console.log(`Added node server to database`);
     }
     else {
-        const isServerANode = await isServerANode(ip);
-        if(!isServerANode) {
+        if(!await isServerANode(ip)) {
             await updateServer(ip, "Node", null, null);
         }
     }

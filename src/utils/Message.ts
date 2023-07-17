@@ -75,11 +75,6 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
 
     socket.on('connect', () => {
         socket.emit('message', data);
-        socket.on("broadcast", function (message: object) {
-            // console.log(theme.error("Server's message broadcast : " + data));
-            console.log(theme.bgWarning("Server's message broadcast :"));
-            console.log(message);
-            socket.close();
-        });
+        socket.close();
     });
 }

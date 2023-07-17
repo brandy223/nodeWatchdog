@@ -1,8 +1,5 @@
-import { promisify } from "util";
 
 const { spawn } = require("node:child_process");
-
-const theme = require("../utils/ColorScheme").theme;
 
 /**
  * Tell state of a service through systemctl

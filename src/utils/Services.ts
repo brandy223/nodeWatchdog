@@ -1,4 +1,5 @@
 
+const Database = require('./Database');
 const Network = require('./Network');
 const Message = require('./Message');
 const BasicServices = require('../services/BasicServices');
@@ -42,33 +43,35 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
 
 /**
  * Make an array that contains systemctl test functions for each service
- * @param {any[]} services Array of services
+ * @param {any[]} jobs Array of services
  * @return {Promise<any[]>} Array of systemctl test functions
  */
-export async function systemctlTestFunctionsInArray(services: any[]): Promise<any[]> {
+export async function systemctlTestFunctionsInArray(jobs: any[]): Promise<any[]> {
     const systemctlTestFunctions: (() => void)[] = [];
-    for (const s of services) {
-        const service = (obj: any): (() => void) => {
+    for (const job of jobs) {
+        const service = (job: any): (() => void) => {
             return async () => {
+                const server = await Database.getServersById([job.serverId]);
+                const service = await Database.getServicesById([job.serviceId]);
                 const status = await BasicServices.isServiceActive({
-                    user: obj.server.user,
-                    ipAddr: obj.server.ipAddr,
+                    user: process.env.SSH_USER,
+                    ipAddr: server[0].ipAddr,
                 }, {
-                    name: obj.service.name,
+                    name: service[0].name,
                 });
                 const res = await makeServiceTestJSON({
-                    id: obj.service.id,
-                    name: obj.service.name,
+                    id: service[0].id,
+                    name: service[0].name,
                 }, {
-                    id: obj.server.id,
-                    ipAddr: obj.server.ipAddr,
+                    id: server[0].id,
+                    ipAddr: server[0].ipAddr,
                 }, status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
             }
         }
-        const sysCtlFunction = service(s);
+        const sysCtlFunction = service(job);
         systemctlTestFunctions.push(sysCtlFunction);
     }
     return systemctlTestFunctions;

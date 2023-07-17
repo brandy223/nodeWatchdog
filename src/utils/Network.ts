@@ -1,6 +1,5 @@
 'use strict';
 
-const cache = require("../index").cache;
 const ip = require("ip");
 const pingConfig = {
     timeout: 10,

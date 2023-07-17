@@ -25,7 +25,9 @@ export async function isServiceActive(server: any, service: any): Promise<string
         const output: string[] = [];
 
         conn.stdout.on("data", (data: any): void => {
-            const line: string = data.toString().trim().split("\n")[2].split("Active:").map((s: string) => s.trim())[1];
+            const lines: string[] = data.toString().trim().split("\n");
+            const searchedIndex = lines.findIndex((line: string): boolean => line.includes("Active: "));
+            const line = lines[searchedIndex].split("Active:").map((s: string) => s.trim())[1];
             if (line.includes("active")) output.push("true");
             else if (line.includes("inactive")) output.push("false");
             else output.push("unknown");

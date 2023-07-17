@@ -4,9 +4,10 @@ const Message = require('./Message');
 const BasicServices = require('../services/BasicServices');
 const Template = require('../templates/DataTemplates');
 const theme = require('./ColorScheme').theme;
+const cache = require("../index").cache;
 
 /**
- * Make an array that contains ping functions
+ * Make an array that contains ping functions and store each reachable server in cache
  * @param {any[]} servers Array of servers
  * @return {Promise<any[]>} Array of ping functions
  */
@@ -15,9 +16,18 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
     for (const server of servers) {
         const ping = (ip: string): (() => void) => {
             return async () => {
-                let status: string = "OK";
+                let status: string = "KO";
                 const ping = await Network.ping(ip);
-                if (!Boolean(ping.shift())) status = "KO";
+                if (Boolean(ping.shift())) {
+                    status = "OK";
+                    const pingCache = cache.get("reachableServers");
+                    if (pingCache === undefined)
+                        cache.set("reachableServers", [ip], 60*60);
+                    else {
+                        pingCache.push(ip);
+                        cache.set("reachableServers", pingCache, 60*60);
+                    }
+                }
                 const res = await makeServerPingJSON(server, status, ping);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));

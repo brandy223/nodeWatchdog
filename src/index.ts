@@ -13,6 +13,10 @@ const Services = require('./utils/Services');
 const compareArrays = require('./utils/Arrays').compareArrays;
 const theme = require('./utils/ColorScheme').theme;
 
+let mainIntervalsCleared: boolean = false;
+let pingIntervalsCleared: boolean = false;
+let servicesIntervalsCleared: boolean = false;
+
 /**
  * Main function
  */
@@ -28,10 +32,10 @@ async function main (): Promise<void> {
         });
     }, Number(process.env.CENTRAL_SERVER_REFRESH_INTERVAL));
 
-    let jobCacheUpdateCount = 0;
-    let serversCacheUpdateCount = 0;
-    let reachableServersCacheUpdateCount = 0;
-    let toDoCacheUpdateCount = 0;
+    let jobCacheUpdateCount: number = 0;
+    let serversCacheUpdateCount: number = 0;
+    let reachableServersCacheUpdateCount: number = 0;
+    let toDoCacheUpdateCount: number = 0;
 
     // GET ALL JOBS
     let jobs = await Database.getAllJobsOfNode(ip);
@@ -93,7 +97,7 @@ async function main (): Promise<void> {
     let servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
 
 
-    const mainIntervals: any[] = await Timer.executeTimedTask(
+    let mainIntervals: any[] = await Timer.executeTimedTask(
         [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
         // [5*60*1000, 5*60*1000, 5*60*1000],
         [5000, 5000, 5000, 5000],
@@ -113,15 +117,57 @@ async function main (): Promise<void> {
         allowEIO3: true, // false by default
     });
 
-    mainSocket.on("error", function () {
+    mainSocket.on("error", async () => {
+        if (!mainIntervalsCleared) {
+            await Timer.clearAllIntervals(mainIntervals);
+            mainIntervalsCleared = true;
+        }
+        if (!pingIntervalsCleared) {
+            await Timer.clearAllIntervals(pingTasks);
+            pingIntervalsCleared = true;
+        }
+        if (!servicesIntervalsCleared) {
+            await Timer.clearAllIntervals(servicesTasks);
+            servicesIntervalsCleared = true;
+        }
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
     });
 
-    mainSocket.on("connect_error", function (err: Error) {
+    mainSocket.on("connect_error", async (err: Error) => {
+        if (!mainIntervalsCleared) {
+            await Timer.clearAllIntervals(mainIntervals);
+            mainIntervalsCleared = true;
+        }
+        if (!pingIntervalsCleared) {
+            await Timer.clearAllIntervals(pingTasks);
+            pingIntervalsCleared = true;
+        }
+        if (!servicesIntervalsCleared) {
+            await Timer.clearAllIntervals(servicesTasks);
+            servicesIntervalsCleared = true;
+        }
         console.error(theme.error("connection failed: " + err));
     });
 
-    mainSocket.on('connect', () => {
+    mainSocket.on('connect', async () => {
+        if (mainIntervalsCleared) {
+            mainIntervals = await Timer.executeTimedTask(
+                [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
+                // [5*60*1000, 5*60*1000, 5*60*1000],
+                [5000, 5000, 5000, 5000],
+                [10000, 10000, 10000, 10000]
+            );
+            mainIntervalsCleared = false;
+        }
+        if (pingIntervalsCleared) {
+            pingTasks = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
+            pingIntervalsCleared = false;
+        }
+        if (servicesIntervalsCleared) {
+            servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
+            servicesIntervalsCleared = false;
+        }
+
         mainSocket.emit('main_connection', ip);
 
         mainSocket.on("main_connection_ack", (message: string) => {

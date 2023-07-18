@@ -65,12 +65,9 @@ export async function getServersByIP (ips: string[]) : Promise<any> {
  * Get servers by type
  * @param {string} type The type of the server (Central or Node)
  * @returns {Promise<*>} Array of node servers
- * @throws {Error} No node servers in the database
  */
 export async function getServerByType (type: string) : Promise<any> {
-    const servers = await prisma.servers.findMany({where: {type: type}});
-    if (servers.length === 0) throw new Error("No servers in database");
-    return servers;
+    return prisma.servers.findMany({where: {type: type}});
 }
 
 /**
@@ -223,7 +220,7 @@ export async function getAllJobsOfNode (ip: string) : Promise<any> {
 export async function getCurrentCentralServer(): Promise<any> {
     // GET CENTRAL SERVER IP
     const centralServer = await getServerByType("Central");
-    if (centralServer === undefined || centralServer === null) throw new Error("Central server not found");
+    if (centralServer === undefined) throw new Error("Central server not found");
     const mainServer = centralServer.filter((server: any) => server.priority === 1)
     console.log(theme.info(`Central server IP: ${mainServer[0].ipAddr}`));
 

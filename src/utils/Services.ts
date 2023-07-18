@@ -65,6 +65,8 @@ export async function systemctlTestFunctionsInArray(jobs: any[]): Promise<any[]>
                 }, {
                     id: server[0].id,
                     ipAddr: server[0].ipAddr,
+                }, {
+                       id: job.jobId
                 }, status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
@@ -100,6 +102,7 @@ export function makeServerPingJSON (server: any, status: string, pingInfo: strin
  * Make a JSON object that contains the id of the service, the server IP hosted on and its status
  * @param {any} service The service object
  * @param {any} server The server object
+ * @param {any} job The job object
  * @param {string[]} status The status of the service
  * @returns {any} The JSON object
  * @throws {Error} If the service is null or undefined
@@ -107,13 +110,15 @@ export function makeServerPingJSON (server: any, status: string, pingInfo: strin
  * @throws {Error} If the server is null or undefined
  * @throws {Error} If the server does not have an id
  * @throws {Error} If the server does not have an ipAddr
+ * @throws {Error} If the jobs has no id
  */
-export function makeServiceTestJSON (service: any, server: any, status: string) : any {
+export function makeServiceTestJSON (service: any, server: any, job: any, status: string) : any {
     if (service === undefined || service === null) throw new Error("Service is null or undefined");
     if (service.id === undefined || service.id === null) throw new Error("Service does not have an id");
     if (server === undefined || server === null) throw new Error("Server is null or undefined");
     if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
     if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
+    if (job.id === undefined || job.id === null) throw new Error("Job does not have an id");
 
-    return new Template.ServiceTestTemplate(service.id, service.name, server.id, server.ipAddr, status).toJSON();
+    return new Template.ServiceTestTemplate(service.id, service.name, server.id, server.ipAddr, job.id, status).toJSON();
 }

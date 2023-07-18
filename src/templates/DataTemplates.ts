@@ -13,11 +13,13 @@ function toJSON(obj: any): any {
 }
 
 export class PingTemplate {
+    messageType: number;
     server: Server;
     status: string;
     pingInfo: string[];
 
     constructor(serverId: number, ip: string, status: string, pingInfo: string[]) {
+        this.messageType = 1;
         this.server = { id: serverId, ip };
         this.status = status;
         this.pingInfo = pingInfo;
@@ -25,6 +27,7 @@ export class PingTemplate {
 
     toJSON() {
         return {
+            messageType: this.messageType,
             server: toJSON(this.server),
             status: this.status,
             pingInfo: this.pingInfo
@@ -33,11 +36,13 @@ export class PingTemplate {
 }
 
 export class ServiceTestTemplate {
+    messageType: number;
     service: Service;
     server: Server;
     status: string;
 
     constructor(serviceId: number, serviceName: string, serverId: number, ip: string, status: string) {
+        this.messageType = 2;
         this.service = { id: serviceId, name: serviceName };
         this.server = { id: serverId, ip };
         this.status = status;
@@ -45,6 +50,7 @@ export class ServiceTestTemplate {
 
     toJSON() {
         return {
+            messageType: this.messageType,
             service: toJSON(this.service),
             server: toJSON(this.server),
             status: this.status

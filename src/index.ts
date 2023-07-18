@@ -19,9 +19,9 @@ const theme = require('./utils/ColorScheme').theme;
 async function main (): Promise<void> {
     const ip: string = await Database.nodeServerDatabaseInit();
     let centralServer = await Database.getCurrentCentralServer();
-    setInterval(async () => {
-        (await Database.getCurrentCentralServer()).then((newCentralServer: any) => {
-           if (newCentralServer !== undefined && centralServer !== newCentralServer) { // new central server can't be undefined per definition but just in case
+    setInterval(() => {
+        (Database.getCurrentCentralServer()).then((newCentralServer: any) => {
+           if (centralServer !== newCentralServer) {
                console.log(theme.warningBright("New central server detected: " + newCentralServer));
                centralServer = newCentralServer;
            }

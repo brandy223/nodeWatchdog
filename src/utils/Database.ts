@@ -62,7 +62,7 @@ export async function getServersByIP (ips: string[]) : Promise<any> {
 }
 
 /**
- * Get Node servers
+ * Get servers by type
  * @param {string} type The type of the server (Central or Node)
  * @returns {Promise<*>} Array of node servers
  * @throws {Error} No node servers in the database

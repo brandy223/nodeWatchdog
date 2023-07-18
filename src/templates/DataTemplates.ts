@@ -8,6 +8,10 @@ interface Service {
     name: string;
 }
 
+interface Job {
+    id: number;
+}
+
 function toJSON(obj: any): any {
     return JSON.parse(JSON.stringify(obj));
 }
@@ -39,12 +43,14 @@ export class ServiceTestTemplate {
     messageType: number;
     service: Service;
     server: Server;
+    job: Job;
     status: string;
 
-    constructor(serviceId: number, serviceName: string, serverId: number, ip: string, status: string) {
+    constructor(serviceId: number, serviceName: string, serverId: number, ip: string, jobId: number, status: string) {
         this.messageType = 2;
         this.service = { id: serviceId, name: serviceName };
         this.server = { id: serverId, ip };
+        this.job = { id: jobId };
         this.status = status;
     }
 
@@ -53,6 +59,7 @@ export class ServiceTestTemplate {
             messageType: this.messageType,
             service: toJSON(this.service),
             server: toJSON(this.server),
+            job: toJSON(this.job),
             status: this.status
         };
     }

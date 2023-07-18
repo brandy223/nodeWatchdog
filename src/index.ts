@@ -13,10 +13,6 @@ const Services = require('./utils/Services');
 const compareArrays = require('./utils/Arrays').compareArrays;
 const theme = require('./utils/ColorScheme').theme;
 
-let mainIntervalsCleared: boolean = false;
-let pingIntervalsCleared: boolean = false;
-let servicesIntervalsCleared: boolean = false;
-
 /**
  * Main function
  */
@@ -36,6 +32,10 @@ async function main (): Promise<void> {
     let serversCacheUpdateCount: number = 0;
     let reachableServersCacheUpdateCount: number = 0;
     let toDoCacheUpdateCount: number = 0;
+
+    let mainIntervalsCleared: boolean = false;
+    let pingIntervalsCleared: boolean = false;
+    let servicesIntervalsCleared: boolean = false;
 
     // GET ALL JOBS
     let jobs = await Database.getAllJobsOfNode(ip);

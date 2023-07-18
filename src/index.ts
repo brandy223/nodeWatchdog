@@ -10,7 +10,7 @@ const Network = require('./utils/Network');
 const Database = require('./utils/Database');
 const Timer = require('./utils/Timer');
 const Services = require('./utils/Services');
-const compareArrays = require('./utils/Arrays').compareArrays;
+const compareArrays = require('./utils/Utilities/Arrays').compareArrays;
 const theme = require('./utils/ColorScheme').theme;
 
 /**

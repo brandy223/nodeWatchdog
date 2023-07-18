@@ -147,6 +147,7 @@ async function main (): Promise<void> {
             servicesIntervalsCleared = true;
         }
         console.error(theme.error("connection failed: " + err));
+        mainSocket.disconnect();
     });
 
     mainSocket.on('connect', async () => {

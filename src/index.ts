@@ -147,7 +147,6 @@ async function main (): Promise<void> {
             servicesIntervalsCleared = true;
         }
         console.error(theme.error("connection failed: " + err));
-        mainSocket.disconnect();
     });
 
     mainSocket.on('connect', async () => {
@@ -170,15 +169,19 @@ async function main (): Promise<void> {
         }
 
         mainSocket.emit('main_connection', ip);
+    });
 
-        mainSocket.on("main_connection_ack", (message: string) => {
-           console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
-        });
+    mainSocket.on("main_connection_ack", (message: string) => {
+        console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
+    });
 
-        mainSocket.on("room_broadcast", (message: object) => {
-            console.log(theme.bgWarning("Central Server's broadcast :"));
-            console.log(message);
-        });
+    mainSocket.on("room_broadcast", (message: object) => {
+        console.log(theme.bgWarning("Central Server's broadcast :"));
+        console.log(message);
+    });
+
+    mainSocket.on("reconnect", () => {
+        console.log("test");
     });
 
 
@@ -251,7 +254,7 @@ main();
 async function updateJobsListInCache(ip: string): Promise<void> {
     const jobs = await Database.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
-    if (cache.get("jobs") != undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
+    if (cache.get("jobs") !== undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
     cache.set("jobs", jobs, 60*60)
     console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
 }

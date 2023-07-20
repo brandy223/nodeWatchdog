@@ -20,7 +20,11 @@ const theme = require('./utils/ColorScheme').theme;
 async function main (): Promise<void> {
     const ip: string = await Database.nodeServerDatabaseInit();
     let centralServer = await Database.getCurrentCentralServer();
+
     // TODO: NEED TO SEND SOMETHING WHEN NO CENTRAL SERVER BEFORE CRASH OF NODE APP
+    // ? Remove Error throw and stand by ?
+    // ? Send a message to something else ? (Trigger website for example, like a route)
+
     setInterval(() => {
         if (failedConnectionAttempts >= Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) {
             console.log("test");

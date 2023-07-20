@@ -228,11 +228,18 @@ export async function getCurrentCentralServer(): Promise<any> {
     const isCentralServerAlive = await Network.ping(mainServer[0].ipAddr);
     if (isCentralServerAlive) {
         console.log(theme.success(`Central server is alive`));
-        return mainServer[0];
+        if (await Network.testConnectionToSocket(mainServer[0].ipAddr, Number(mainServer[0].port))) {
+            console.log(theme.success(`Central server port is open`));
+            return mainServer[0];
+        }
+        else {
+            console.log(theme.warning(`Central server port is closed, trying to connect to backup server`));
+        }
     }
+    else console.log(theme.warning(`Central server is not alive, trying to connect to backup server`));
 
-    console.log(theme.warning(`Central server is not alive, trying to connect to backup server`));
     const backupServer = centralServer.filter((server: any) => server.priority === 0)
+    if (backupServer.length === 0) throw new Error("Backup central server not found");
     const isBackupServerAlive = await Network.pingServers([backupServer[0].ipAddr]);
     if (!isBackupServerAlive) throw new Error("Backup central server is not alive");
     console.log(theme.info(`Backup server: ${JSON.stringify(backupServer)}`));

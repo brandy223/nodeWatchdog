@@ -17,7 +17,7 @@ export async function getLocalIP () : Promise<string> {
 /**
  * Ping an IP Address
  * @param {string} ip
- * @returns {Promise<string[]>} True if the IP Address is reachable, false otherwise
+ * @returns {Promise<string[]>} True if the IP Address is reachable, false otherwise + ping info
  */
 export async function ping (ip: string) : Promise<string[]> {
     const ping = require('ping');
@@ -28,11 +28,31 @@ export async function ping (ip: string) : Promise<string[]> {
 }
 
 /**
+ * Test connection with server socket
+ * @param {string} ip
+ * @param {number} port
+ * @returns {Promise<boolean>} True if the connection is established, false otherwise
+ */
+export function testConnectionToSocket (ip: string, port: number) : Promise<boolean> {
+    const socket = require('socket.io-client')(`http://${ip}:${port}`);
+    return new Promise((resolve, reject) => {
+        socket.on('connect', () => {
+            resolve(true);
+            socket.disconnect();
+        });
+        socket.on('connect_error', () => {
+            resolve(false);
+            socket.disconnect();
+        });
+    });
+}
+
+/**
  * Function to extract ping information from ping output
  * @param {string} pingOutput The output of the ping command
  * @returns {string[]} Array that contains the number of packets sent, received and lost
  */
-export function extractPingInfo (pingOutput: string) : string[] {
+function extractPingInfo (pingOutput: string) : string[] {
     const temp: string[] = pingOutput.trim().split("\n");
     return temp[temp.length - 2].split(",").map(part => part.trim());
 }

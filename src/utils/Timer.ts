@@ -22,11 +22,11 @@ export async function executeTimedTask(functions: (() => void)[], intervals: num
             fct();
         }, interval);
 
-        if (timeout > 0) {
-            setTimeout(() => {
-                // Action à effectuer si le timeout est atteint
-            }, timeout);
-        }
+        // if (timeout > 0) {
+        //     setTimeout(() => {
+        //         // Action à effectuer si le timeout est atteint
+        //     }, timeout);
+        // }
 
         intervalsTabs.push(intervalVar);
     }

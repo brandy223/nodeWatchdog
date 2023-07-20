@@ -180,11 +180,6 @@ async function main (): Promise<void> {
         console.log(message);
     });
 
-    mainSocket.on("reconnect", () => {
-        console.log("test");
-    });
-
-
     // CACHE EVENTS
     cache.on("set", async (key: string, value: any[]) => {
         switch(key) {

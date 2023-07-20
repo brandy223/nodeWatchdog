@@ -37,6 +37,10 @@ export function testConnectionToSocket (ip: string, port: number) : Promise<bool
     const socket = require('socket.io-client')(`http://${ip}:${port}`);
     return new Promise((resolve, reject) => {
         socket.on('connect', () => {
+            socket.emit("test_connection", "OK");
+        });
+        socket.on("test_connection_ack", (message: string) => {
+            console.log("Test connection ack: " + message);
             resolve(true);
             socket.disconnect();
         });

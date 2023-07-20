@@ -1,3 +1,4 @@
+import {fail} from "assert";
 
 const io= require('socket.io-client');
 const NodeCache = require("node-cache");
@@ -19,19 +20,26 @@ const theme = require('./utils/ColorScheme').theme;
 async function main (): Promise<void> {
     const ip: string = await Database.nodeServerDatabaseInit();
     let centralServer = await Database.getCurrentCentralServer();
+    // TODO: NEED TO SEND SOMETHING WHEN NO CENTRAL SERVER BEFORE CRASH OF NODE APP
     setInterval(() => {
-        (Database.getCurrentCentralServer()).then((newCentralServer: any) => {
-           if (centralServer !== newCentralServer) {
-               console.log(theme.warningBright("New central server detected: " + newCentralServer));
-               centralServer = newCentralServer;
-           }
-        });
+        if (failedConnectionAttempts >= Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) {
+            console.log("test");
+            (Database.getCurrentCentralServer()).then((newCentralServer: any) => {
+                if (centralServer !== newCentralServer) {
+                    console.log(theme.warningBright("New central server detected: " + newCentralServer));
+                    centralServer = newCentralServer;
+                    failedConnectionAttempts = 0;
+                }
+            });
+        }
     }, Number(process.env.CENTRAL_SERVER_REFRESH_INTERVAL));
 
     let jobCacheUpdateCount: number = 0;
     let serversCacheUpdateCount: number = 0;
     let reachableServersCacheUpdateCount: number = 0;
     let toDoCacheUpdateCount: number = 0;
+
+    let failedConnectionAttempts: number = 0;
 
     let mainIntervalsCleared: boolean = false;
     let pingIntervalsCleared: boolean = false;
@@ -131,6 +139,7 @@ async function main (): Promise<void> {
             servicesIntervalsCleared = true;
         }
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
+        failedConnectionAttempts++;
     });
 
     mainSocket.on("connect_error", async (err: Error) => {
@@ -147,6 +156,7 @@ async function main (): Promise<void> {
             servicesIntervalsCleared = true;
         }
         console.error(theme.error("connection failed: " + err));
+        failedConnectionAttempts++;
     });
 
     mainSocket.on('connect', async () => {

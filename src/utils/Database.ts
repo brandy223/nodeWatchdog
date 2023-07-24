@@ -131,7 +131,7 @@ export async function updateServer (ip: string, type: string, port: number | nul
  * @throws {Error} If the jobs array is empty
  */
 export async function getServersOfJobs (jobs: Jobs[]) : Promise<Servers[]> {
-if (jobs.length === 0) throw new Error("Jobs array is empty");
+    if (jobs.length === 0) throw new Error("Jobs array is empty");
     const jobsIds: number[] = jobs.map((job: Jobs) => job.id);
     const serverIds: number[] = (await prisma.servicesOfServers.findMany({ where: { jobId: {in: jobsIds} } })).map((server: ServicesOfServers) => server.serverId);
     return getServersByIds(serverIds);

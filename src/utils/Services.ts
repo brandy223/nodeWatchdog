@@ -17,10 +17,10 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
     const pingFunctions: (() => void)[] = [];
     for (const server of servers) {
         const ping = (ip: string): (() => void) => {
-            return async (): Promise<void> => {
+            return (): void => {
                 let status: string = "KO";
-                const ping: string[] = await Network.ping(ip);
-                if (Boolean(ping.shift())) {
+                const ping: string[] = Network.ping(ip);
+                if (ping.shift()) {
                     status = "OK";
                     const pingCache = cache.get("reachableServersIps");
                     if (pingCache === undefined)
@@ -30,8 +30,8 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
                         cache.set("reachableServersIps", pingCache, 60*60);
                     }
                 }
-                const res: JSON = await makeServerPingJSON(server, status, ping);
-                await Message.sendDataToMainServer(res);
+                const res: JSON = makeServerPingJSON(server, status, ping);
+                Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
             }
@@ -51,21 +51,21 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
     const systemctlTestFunctions: (() => void)[] = [];
     for (const job of jobs) {
         const service = (job: ServicesOfServers): (() => void) => {
-            return async (): Promise<void> => {
-                const server: Servers[] = await Database.getServersByIds([job.serverId]);
-                const service: Services[] = await Database.getServicesById([job.serviceId]);
-                const jobObj: Jobs[] = await Database.getJobsByIds([job.jobId as number]);
+            return (): void => {
+                const server: Servers[] = Database.getServersByIds([job.serverId]);
+                const service: Services[] = Database.getServicesById([job.serviceId]);
+                const jobObj: Jobs[] = Database.getJobsByIds([job.jobId as number]);
 
                 // TODO: replace variables below
 
-                const status: string[] = await BasicServices.isServiceActive({
+                const status: string[] = BasicServices.isServiceActive({
                     user: process.env.SSH_USER,
                     ipAddr: server[0].ipAddr,
                 }, {
                     name: service[0].name,
                 });
-                const res: JSON = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
-                await Message.sendDataToMainServer(res);
+                const res: JSON = makeServiceTestJSON(service[0], server[0], jobObj[0], status);
+                Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
             }

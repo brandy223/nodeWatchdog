@@ -1,5 +1,6 @@
 
 import {stringify} from "querystring";
+import {Servers} from "@prisma/client";
 
 const Database = require('./Database');
 const io= require('socket.io-client');
@@ -13,7 +14,7 @@ const theme = require('./ColorScheme').theme;
  */
 export async function sendDataToMainServer (data: any) : Promise<void> {
     if (data === undefined || data === null) throw new Error("Data is null or undefined");
-    const centralServer = await Database.getCurrentCentralServer();
+    const centralServer: Servers = await Database.getCurrentCentralServer();
 
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
         reconnection: true,
@@ -26,15 +27,15 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
         allowEIO3: true, // false by default
     });
 
-    socket.on("error", function () {
+    socket.on("error", function (): void {
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
     });
 
-    socket.on("connect_error", function (err: Error) {
+    socket.on("connect_error", function (err: Error): void {
         console.error(theme.error("connection failed: " + err));
     });
 
-    socket.on('connect', () => {
+    socket.on('connect', (): void => {
         socket.emit('message', data);
         socket.close();
     });

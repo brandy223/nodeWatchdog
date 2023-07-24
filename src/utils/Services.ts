@@ -1,3 +1,4 @@
+import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
 
 const Database = require('./Database');
 const Network = require('./Network');
@@ -9,24 +10,24 @@ const cache = require("../index").cache;
 
 /**
  * Make an array that contains ping functions and store each reachable server in cache
- * @param {any[]} servers Array of servers
+ * @param {Servers[]} servers Array of servers
  * @return {Promise<any[]>} Array of ping functions
  */
-export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
+export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
     const pingFunctions: (() => void)[] = [];
     for (const server of servers) {
         const ping = (ip: string): (() => void) => {
-            return async () => {
+            return async (): Promise<void> => {
                 let status: string = "KO";
-                const ping = await Network.ping(ip);
+                const ping: string[] = await Network.ping(ip);
                 if (Boolean(ping.shift())) {
                     status = "OK";
-                    const pingCache = cache.get("reachableServers");
+                    const pingCache = cache.get("reachableServersIps");
                     if (pingCache === undefined)
-                        cache.set("reachableServers", [ip], 60*60);
+                        cache.set("reachableServersIps", [ip], 60*60);
                     else {
                         pingCache.push(ip);
-                        cache.set("reachableServers", pingCache, 60*60);
+                        cache.set("reachableServersIps", pingCache, 60*60);
                     }
                 }
                 const res = await makeServerPingJSON(server, status, ping);
@@ -43,31 +44,27 @@ export async function pingFunctionsInArray(servers: any[]): Promise<any[]> {
 
 /**
  * Make an array that contains systemctl test functions for each service
- * @param {any[]} jobs Array of services
+ * @param {ServicesOfServers[]} jobs Array of services
  * @return {Promise<any[]>} Array of systemctl test functions
  */
-export async function systemctlTestFunctionsInArray(jobs: any[]): Promise<any[]> {
+export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): Promise<any[]> {
     const systemctlTestFunctions: (() => void)[] = [];
     for (const job of jobs) {
-        const service = (job: any): (() => void) => {
-            return async () => {
-                const server = await Database.getServersById([job.serverId]);
-                const service = await Database.getServicesById([job.serviceId]);
-                const status = await BasicServices.isServiceActive({
+        const service = (job: ServicesOfServers): (() => void) => {
+            return async (): Promise<void> => {
+                const server: Servers = await Database.getServersByIds([job.serverId]);
+                const service: Services = await Database.getServicesById([job.serviceId]);
+                const jobObj: Jobs = await Database.getJobsByIds([job.jobId as number]);
+
+                // TODO: replace variables below
+
+                const status: string[] = await BasicServices.isServiceActive({
                     user: process.env.SSH_USER,
                     ipAddr: server[0].ipAddr,
                 }, {
                     name: service[0].name,
                 });
-                const res = await makeServiceTestJSON({
-                    id: service[0].id,
-                    name: service[0].name,
-                }, {
-                    id: server[0].id,
-                    ipAddr: server[0].ipAddr,
-                }, {
-                       id: job.jobId
-                }, status);
+                const res = await makeServiceTestJSON(service, server, jobObj, status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
@@ -81,44 +78,27 @@ export async function systemctlTestFunctionsInArray(jobs: any[]): Promise<any[]>
 
 /**
  * Make a JSON object that contains the id of the server, its IP address and its status
- * @param {any} server The server object
+ * @param {Servers} server The server object
  * @param {string} status The status of the server
  * @param {string[]} pingInfo Information about the ping
- * @returns {any} The JSON object
- * @throws {Error} If the server is null or undefined
- * @throws {Error} If the server does not have an id
- * @throws {Error} If the server does not have an ipAddr
+ * @returns {JSON} The JSON object
  * @throws {Error} If the pingInfo is empty
  */
-export function makeServerPingJSON (server: any, status: string, pingInfo: string[]) : any {
-    if (server === undefined || server === null) throw new Error("Server is null or undefined");
-    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
-    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
+export function makeServerPingJSON (server: Servers, status: string, pingInfo: string[]): JSON {
     if (pingInfo.length === 0) throw new Error("Ping info is empty");
     return new Template.PingTemplate(server.id, server.ipAddr, status, pingInfo).toJSON();
 }
 
 /**
  * Make a JSON object that contains the id of the service, the server IP hosted on and its status
- * @param {any} service The service object
- * @param {any} server The server object
- * @param {any} job The job object
+ * @param {Services} service The service object
+ * @param {Servers} server The server object
+ * @param {Jobs} job The job object
  * @param {string[]} status The status of the service
- * @returns {any} The JSON object
- * @throws {Error} If the service is null or undefined
- * @throws {Error} If the service does not have an id
- * @throws {Error} If the server is null or undefined
- * @throws {Error} If the server does not have an id
- * @throws {Error} If the server does not have an ipAddr
- * @throws {Error} If the jobs has no id
+ * @returns {JSON} The JSON object
+ * @throws {Error} If the status is empty
  */
-export function makeServiceTestJSON (service: any, server: any, job: any, status: string) : any {
-    if (service === undefined || service === null) throw new Error("Service is null or undefined");
-    if (service.id === undefined || service.id === null) throw new Error("Service does not have an id");
-    if (server === undefined || server === null) throw new Error("Server is null or undefined");
-    if (server.id === undefined || server.id === null) throw new Error("Server does not have an id");
-    if (server.ipAddr === undefined || server.ipAddr === null) throw new Error("Server does not have an ipAddr");
-    if (job.id === undefined || job.id === null) throw new Error("Job does not have an id");
-
+export function makeServiceTestJSON (service: Services, server: Servers, job: Jobs, status: string[]): JSON {
+    if (status.length === 0) throw new Error("Status is empty");
     return new Template.ServiceTestTemplate(service.id, service.name, server.id, server.ipAddr, job.id, status).toJSON();
 }

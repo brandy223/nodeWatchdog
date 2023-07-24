@@ -1,4 +1,5 @@
-import {fail} from "assert";
+
+import {Jobs, Servers, ServicesOfServers} from "@prisma/client";
 
 const io= require('socket.io-client');
 const NodeCache = require("node-cache");
@@ -19,16 +20,15 @@ const theme = require('./utils/ColorScheme').theme;
  */
 async function main (): Promise<void> {
     const ip: string = await Database.nodeServerDatabaseInit();
-    let centralServer = await Database.getCurrentCentralServer();
+    let centralServer: Servers = await Database.getCurrentCentralServer();
 
     // TODO: NEED TO SEND SOMETHING WHEN NO CENTRAL SERVER BEFORE CRASH OF NODE APP
     // ? Remove Error throw and stand by ?
     // ? Send a message to something else ? (Trigger website for example, like a route)
 
-    setInterval(() => {
+    setInterval((): void => {
         if (failedConnectionAttempts >= Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) {
-            console.log("test");
-            (Database.getCurrentCentralServer()).then((newCentralServer: any) => {
+            (Database.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
                 if (centralServer !== newCentralServer) {
                     console.log(theme.warningBright("New central server detected: " + newCentralServer));
                     centralServer = newCentralServer;
@@ -50,63 +50,63 @@ async function main (): Promise<void> {
     let servicesIntervalsCleared: boolean = false;
 
     // GET ALL JOBS
-    let jobs = await Database.getAllJobsOfNode(ip);
+    let jobs: Jobs[] = await Database.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
     console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
     cache.set("jobs", jobs, 60*60);
     jobCacheUpdateCount++;
     // Interval to update jobs
-    const jobsInterval = async () => {
+    const jobsInterval = async (): Promise<void> => {
         await updateJobsListInCache(ip);
         jobCacheUpdateCount++;
     }
 
     // GET ALL SERVERS
-    let servers = await Database.getServersOfJobs(jobs);
+    let servers: Servers[] = await Database.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
     console.log(theme.debug(`Servers: ${JSON.stringify(servers)}`));
     cache.set("servers", servers, 60*60);
     serversCacheUpdateCount++;
     // Interval to update servers
-    const serversInterval = async () => {
+    const serversInterval = async (): Promise<void> => {
         await updateServersListInCache(servers);
         serversCacheUpdateCount++;
     }
 
     // GET ALL REACHABLE SERVERS (For services)
-    let serversIps = servers.map((server: any) => server.ipAddr);
-    let reachableServersIps = await Network.pingServers(serversIps);
+    let serversIps: string[] = servers.map((server: Servers) => server.ipAddr);
+    let reachableServersIps: string[] = await Network.pingServers(serversIps);
     if (reachableServersIps.length === 0) throw new Error("No reachable servers found");
     console.log(theme.debug(`Reachable servers: ${JSON.stringify(reachableServersIps)}`));
     cache.set("reachableServersIps", reachableServersIps, 60*60);
     reachableServersCacheUpdateCount++;
     // Interval to update reachable servers
-    const reachableServersInterval = async () => {
+    const reachableServersInterval = async (): Promise<void> => {
         await updateReachableServersListInCache(servers);
         reachableServersCacheUpdateCount++;
     }
 
     // GET ALL TASKS FROM REACHABLE SERVERS
-    let toDo = await Database.getAllServersAndServicesIdsOfJobs(jobs);
-    let reachableServers = await Database.getServersByIP(reachableServersIps);
-    toDo.filter((server: any) => reachableServers.includes(server.id));
+    let toDo: ServicesOfServers[] = await Database.getAllServersAndServicesIdsOfJobs(jobs);
+    let reachableServers: Servers[] = await Database.getServersByIP(reachableServersIps);
+    toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
     if (toDo.length === 0) throw new Error("No services can be tested");
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));
     cache.set("toDo", toDo, 60*60);
     toDoCacheUpdateCount++;
     // Interval to update the todo list
-    const todoInterval = async () => {
+    const todoInterval = async (): Promise<void> => {
         await updateTodoListInCache(reachableServersIps, jobs);
         toDoCacheUpdateCount++;
     }
 
     // PING SERVERS TO SEND TO CENTRAL SERVER
-    let pingWrapper = await Services.pingFunctionsInArray(servers);
-    let pingTasks = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
+    let pingWrapper: any[] = await Services.pingFunctionsInArray(servers);
+    let pingTasks: any[] = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
 
     // TEST SERVICES
-    let servicesWrapper = await Services.systemctlTestFunctionsInArray(toDo);
-    let servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
+    let servicesWrapper: any[] = await Services.systemctlTestFunctionsInArray(toDo);
+    let servicesTasks: any[] = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
 
 
     let mainIntervals: any[] = await Timer.executeTimedTask(
@@ -129,7 +129,7 @@ async function main (): Promise<void> {
         allowEIO3: true, // false by default
     });
 
-    mainSocket.on("error", async () => {
+    mainSocket.on("error", async (): Promise<void> => {
         if (!mainIntervalsCleared) {
             await Timer.clearAllIntervals(mainIntervals);
             mainIntervalsCleared = true;
@@ -146,7 +146,7 @@ async function main (): Promise<void> {
         failedConnectionAttempts++;
     });
 
-    mainSocket.on("connect_error", async (err: Error) => {
+    mainSocket.on("connect_error", async (err: Error): Promise<void> => {
         if (!mainIntervalsCleared) {
             await Timer.clearAllIntervals(mainIntervals);
             mainIntervalsCleared = true;
@@ -163,7 +163,7 @@ async function main (): Promise<void> {
         failedConnectionAttempts++;
     });
 
-    mainSocket.on('connect', async () => {
+    mainSocket.on('connect', async (): Promise<void> => {
         if (mainIntervalsCleared) {
             mainIntervals = await Timer.executeTimedTask(
                 [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
@@ -185,17 +185,17 @@ async function main (): Promise<void> {
         mainSocket.emit('main_connection', ip);
     });
 
-    mainSocket.on("main_connection_ack", (message: string) => {
+    mainSocket.on("main_connection_ack", (message: string): void => {
         console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
     });
 
-    mainSocket.on("room_broadcast", (message: object) => {
+    mainSocket.on("room_broadcast", (message: object): void => {
         console.log(theme.bgWarning("Central Server's broadcast :"));
         console.log(message);
     });
 
     // CACHE EVENTS
-    cache.on("set", async (key: string, value: any[]) => {
+    cache.on("set", async (key: string, value: any[]): Promise<void> => {
         switch(key) {
             case "jobs":
                 if (jobCacheUpdateCount === 0) break;
@@ -226,7 +226,7 @@ async function main (): Promise<void> {
         }
     });
 
-    cache.on("expired", async (key: string) => {
+    cache.on("expired", async (key: string): Promise<void> => {
         console.log(`Cache expired: ${key}`);
         const newJobs = await Database.getAllJobsOfNode(ip);
         switch (key) {
@@ -261,7 +261,7 @@ main();
  * @throws {Error} No jobs found
  */
 async function updateJobsListInCache(ip: string): Promise<void> {
-    const jobs = await Database.getAllJobsOfNode(ip);
+    const jobs: Jobs[] = await Database.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
     if (cache.get("jobs") !== undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
     cache.set("jobs", jobs, 60*60)
@@ -270,14 +270,14 @@ async function updateJobsListInCache(ip: string): Promise<void> {
 
 /**
  * Update the servers list in cache
- * @param {any[]} jobs List of jobs
+ * @param {Jobs[]} jobs List of jobs
  * @return {Promise<void>}
  * @throws {Error} No jobs given
  * @throws {Error} No servers found
  */
-async function updateServersListInCache(jobs: any[]): Promise<void> {
+async function updateServersListInCache(jobs: Jobs[]): Promise<void> {
     if (jobs.length === 0) throw new Error("No jobs given");
-    const servers = await Database.getServersOfJobs(jobs);
+    const servers: Servers[] = await Database.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
     if (cache.get("servers") !== undefined && (await compareArrays(servers, cache.get("servers")))) return;
     cache.set("servers", servers, 60*60)
@@ -286,15 +286,15 @@ async function updateServersListInCache(jobs: any[]): Promise<void> {
 
 /**
  * Update the reachable servers list in cache
- * @param {any[]} servers List of servers to check
+ * @param {Servers[]} servers List of servers to check
  * @return {Promise<void>}
  * @throws {Error} No server given
  * @throws {Error} No servers reachable
  */
-async function updateReachableServersListInCache(servers: any[]): Promise<void> {
-    if (servers.length === 0) throw new Error("No jobs given");
-    const serversIps = servers.map((server: any) => server.ipAddr);
-    const reachableServersIps = await Network.pingServers(serversIps);
+async function updateReachableServersListInCache(servers: Servers[]): Promise<void> {
+    if (servers.length === 0) throw new Error("No servers given");
+    const serversIps: string[] = servers.map((server: any) => server.ipAddr);
+    const reachableServersIps: string[] = await Network.pingServers(serversIps);
     if (reachableServersIps.length === 0) throw new Error("No servers reachable");
     if (cache.get("reachableServersIps") !== undefined && (await compareArrays(reachableServersIps, cache.get("reachableServersIps")))) return;
     cache.set("reachableServersIps", reachableServersIps, 60*60)
@@ -304,16 +304,16 @@ async function updateReachableServersListInCache(servers: any[]): Promise<void> 
 /**
  * Update the toDo list in cache
  * @param {string[]} reachableServersIps List of reachable servers
- * @param {any[]} jobs List of jobs
+ * @param {Jobs[]} jobs List of jobs
  * @return {Promise<void>}
- * @throws {Error} No reachable servers given
+ * @throws {Error} No jobs given
  * @throws {Error} No services can be tested
  */
-async function updateTodoListInCache(reachableServersIps: string[], jobs: any[]): Promise<void> {
-    if (reachableServersIps.length === 0) throw new Error("No reachable servers given");
-    const reachableServers = await Database.getServersByIP(reachableServersIps);
-    const toDo = await Database.getAllServersAndServicesIdsOfJobs(jobs);
-    toDo.filter((server: any) => reachableServers.includes(server.id));
+async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]): Promise<void> {
+    if (reachableServersIps.length === 0) throw new Error("No jobs given");
+    const reachableServers: Servers[] = await Database.getServersByIP(reachableServersIps);
+    const toDo: ServicesOfServers[] = await Database.getAllServersAndServicesIdsOfJobs(jobs);
+    toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
     if (toDo.length === 0) throw new Error("No services can be tested");
     if (cache.get("toDo") !== undefined && (await compareArrays(toDo, cache.get("toDo")))) return;
     cache.set("toDo", toDo, 60*60);

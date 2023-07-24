@@ -22,7 +22,7 @@ export async function getLocalIP () : Promise<string> {
 export async function ping (ip: string) : Promise<string[]> {
     const ping = require('ping');
     const res = await ping.promise.probe(ip, pingConfig);
-    const output = extractPingInfo(res.output);
+    const output: string[] = extractPingInfo(res.output);
     output.unshift(res.alive.toString());
     return output;
 }
@@ -35,16 +35,16 @@ export async function ping (ip: string) : Promise<string[]> {
  */
 export function testConnectionToSocket (ip: string, port: number) : Promise<boolean> {
     const socket = require('socket.io-client')(`http://${ip}:${port}`);
-    return new Promise((resolve, reject) => {
-        socket.on('connect', () => {
+    return new Promise((resolve, reject): void => {
+        socket.on('connect', (): void => {
             socket.emit("test_connection", "OK");
         });
-        socket.on("test_connection_ack", (message: string) => {
+        socket.on("test_connection_ack", (message: string): void => {
             console.log("Test connection ack: " + message);
             resolve(true);
             socket.disconnect();
         });
-        socket.on('connect_error', () => {
+        socket.on('connect_error', (): void => {
             resolve(false);
             socket.disconnect();
         });
@@ -58,7 +58,7 @@ export function testConnectionToSocket (ip: string, port: number) : Promise<bool
  */
 function extractPingInfo (pingOutput: string) : string[] {
     const temp: string[] = pingOutput.trim().split("\n");
-    return temp[temp.length - 2].split(",").map(part => part.trim());
+    return temp[temp.length - 2].split(",").map((part: string) => part.trim());
 }
 
 /**
@@ -67,7 +67,7 @@ function extractPingInfo (pingOutput: string) : string[] {
  * @returns {Promise<string[]>} The list of reachable IP Addresses
  */
 export async function pingServers (ipList: string[]) : Promise<string[]> {
-    const reachableIPList = [];
+    const reachableIPList: string[] = [];
     for (const ip of ipList) {
         if ((await ping(ip))[0]) reachableIPList.push(ip);
     }

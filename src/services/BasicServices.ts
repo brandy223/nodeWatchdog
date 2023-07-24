@@ -1,30 +1,32 @@
+import {ChildProcessWithoutNullStreams} from "child_process";
+import {Services} from "@prisma/client";
 
 const { spawn } = require("node:child_process");
 
+type Server = {
+    ipAddr: string;
+    user: string;
+}
+
 /**
  * Tell state of a service through systemctl
- * @param {any} server Server object that contains the IP address and the user to connect to through SSH
- * @param {any} service The service object
+ * @param {Server} server Server object that contains the IP address and the user to connect to through SSH
+ * @param {Services} service The service object
  * @return {Promise<string[]>} Contains the state of the service and the output of the command on "Active: " line
- * @throws {Error} If the server is null or undefined
- * @throws {Error} If the service is null or undefined
  * @throws {Error} If the data from ssh stdout is null or undefined
  */
-export async function isServiceActive(server: any, service: any): Promise<string[]> {
-    if (server === undefined || server === null) throw new Error("Server is null or undefined");
-    if (service === undefined || service === null) throw new Error("Service is null or undefined");
-
+export async function isServiceActive(server: Server, service: Services): Promise<string[]> {
     return new Promise<string[]>((resolve, reject): void => {
-        const arg1 = `${server.user}@${server.ipAddr}`;
-        const arg2 = `systemctl status ${service.name}.service`;
-        const conn = spawn("ssh", [arg1, arg2]);
+        const arg1: string = `${server.user}@${server.ipAddr}`;
+        const arg2: string = `systemctl status ${service.name}.service`;
+        const conn: ChildProcessWithoutNullStreams = spawn("ssh", [arg1, arg2]);
 
         const output: string[] = [];
 
         conn.stdout.on("data", (data: any): void => {
             const lines: string[] = data.toString().trim().split("\n");
-            const searchedIndex = lines.findIndex((line: string): boolean => line.includes("Active: "));
-            const line = lines[searchedIndex].split("Active:").map((s: string) => s.trim())[1];
+            const searchedIndex: number = lines.findIndex((line: string): boolean => line.includes("Active: "));
+            const line: string = lines[searchedIndex].split("Active:").map((s: string) => s.trim())[1];
             if (line.includes("active")) output.push("true");
             else if (line.includes("inactive")) output.push("false");
             else output.push("unknown");

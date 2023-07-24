@@ -1,5 +1,4 @@
 
-import {stringify} from "querystring";
 import {Servers} from "@prisma/client";
 
 const Database = require('./Database');
@@ -19,7 +18,7 @@ export async function sendDataToMainServer (data: any) : Promise<void> {
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
         reconnection: true,
         cors: {
-            origin: stringify(centralServer.ipAddr),
+            origin: centralServer.ipAddr,
             methods: ['GET', 'POST']
         },
         withCredentials: true,

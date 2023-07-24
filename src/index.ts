@@ -69,7 +69,7 @@ async function main (): Promise<void> {
     serversCacheUpdateCount++;
     // Interval to update servers
     const serversInterval = async (): Promise<void> => {
-        await updateServersListInCache(servers);
+        await updateServersListInCache(jobs);
         serversCacheUpdateCount++;
     }
 
@@ -200,7 +200,7 @@ async function main (): Promise<void> {
             case "jobs":
                 if (jobCacheUpdateCount === 0) break;
                 jobs = value;
-                await updateServersListInCache(servers);
+                await updateServersListInCache(jobs);
                 await updateReachableServersListInCache(servers);
                 await updateTodoListInCache(reachableServersIps, jobs);
                 console.log("Jobs refreshed");

@@ -30,7 +30,7 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
                         cache.set("reachableServersIps", pingCache, 60*60);
                     }
                 }
-                const res = await makeServerPingJSON(server, status, ping);
+                const res: JSON = await makeServerPingJSON(server, status, ping);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
@@ -52,9 +52,9 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
     for (const job of jobs) {
         const service = (job: ServicesOfServers): (() => void) => {
             return async (): Promise<void> => {
-                const server: Servers = await Database.getServersByIds([job.serverId]);
-                const service: Services = await Database.getServicesById([job.serviceId]);
-                const jobObj: Jobs = await Database.getJobsByIds([job.jobId as number]);
+                const server: Servers[] = await Database.getServersByIds([job.serverId]);
+                const service: Services[] = await Database.getServicesById([job.serviceId]);
+                const jobObj: Jobs[] = await Database.getJobsByIds([job.jobId as number]);
 
                 // TODO: replace variables below
 
@@ -64,7 +64,7 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                 }, {
                     name: service[0].name,
                 });
-                const res = await makeServiceTestJSON(service, server, jobObj, status);
+                const res: JSON = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);

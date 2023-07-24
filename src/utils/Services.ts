@@ -61,9 +61,7 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                 const status: string[] = await BasicServices.isServiceActive({
                     user: process.env.SSH_USER,
                     ipAddr: server[0].ipAddr,
-                }, {
-                    name: service[0].name,
-                });
+                }, service[0]);
                 const res: JSON = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));

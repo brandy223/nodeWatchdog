@@ -16,7 +16,7 @@ const prisma = new PrismaClient(
  * @returns {Promise<boolean>} True if the server exists in the database, false otherwise
  */
 export async function isServerInDatabase (ip: string) : Promise<boolean> {
-    return (await prisma.servers.findUnique({ where: { ipAddr: ip } })) !== undefined;
+    return (await prisma.servers.findUnique({ where: { ipAddr: ip } })) !== null;
 }
 
 /**

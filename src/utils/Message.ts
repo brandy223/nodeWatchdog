@@ -1,7 +1,9 @@
 
 import {Servers} from "@prisma/client";
 
-const Database = require('./Database');
+// DATABASE
+const dbMisc = require('./database/Misc');
+
 const io= require('socket.io-client');
 const theme = require('./ColorScheme').theme;
 
@@ -13,7 +15,7 @@ const theme = require('./ColorScheme').theme;
  */
 export async function sendDataToMainServer (data: any) : Promise<void> {
     if (data === undefined || data === null) throw new Error("Data is null or undefined");
-    const centralServer: Servers = await Database.getCurrentCentralServer();
+    const centralServer: Servers = await dbMisc.getCurrentCentralServer();
 
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
         reconnection: true,

@@ -1,6 +1,10 @@
 import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
 
-const Database = require('./Database');
+// DATABASE
+const s = require('./database/Servers');
+const dbServices = require('./database/Services');
+const j = require('./database/Jobs');
+
 const Network = require('./Network');
 const Message = require('./Message');
 const BasicServices = require('../services/BasicServices');
@@ -52,9 +56,9 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
     for (const job of jobs) {
         const service = (job: ServicesOfServers): (() => void) => {
             return async (): Promise<void> => {
-                const server: Servers[] = await Database.getServersByIds([job.serverId]);
-                const service: Services[] = await Database.getServicesById([job.serviceId]);
-                const jobObj: Jobs[] = await Database.getJobsByIds([job.jobId as number]);
+                const server: Servers[] = await s.getServersByIds([job.serverId]);
+                const service: Services[] = await dbServices.getServicesById([job.serviceId]);
+                const jobObj: Jobs[] = await j.getJobsByIds([job.jobId as number]);
 
                 // TODO: replace variables below
 

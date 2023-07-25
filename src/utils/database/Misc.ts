@@ -6,13 +6,6 @@ const Network = require("../Network");
 
 import { theme } from "../ColorScheme";
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(
-    {
-        // log: ["query", "info", "warn", "error"],
-    },
-);
-
 /**
  * Get the current central server
  * @returns {Promise<Servers>} The central server

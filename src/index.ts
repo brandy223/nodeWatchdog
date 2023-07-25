@@ -91,7 +91,7 @@ async function main (): Promise<void> {
     // GET ALL TASKS FROM REACHABLE SERVERS
     let toDo: ServicesOfServers[] = await s.getAllServersAndServicesIdsOfJobs(jobs);
     let reachableServers: Servers[] = await s.getServersByIP(reachableServersIps);
-    let filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
+    let filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await s.getServersByIds([server.serverId])).id));
     if (filteredToDo.length === 0) throw new Error("No services can be tested");
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));
     cache.set("toDo", toDo, 60*60);
@@ -104,18 +104,17 @@ async function main (): Promise<void> {
 
     // PING SERVERS TO SEND TO CENTRAL SERVER
     let pingWrapper: any[] = await Services.pingFunctionsInArray(servers);
-    let pingTasks: any[] = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
+    let pingTasks: any[] = await Timer.executeTimedTask(pingWrapper, [5000]);
 
     // TEST SERVICES
     let servicesWrapper: any[] = await Services.systemctlTestFunctionsInArray(toDo);
-    let servicesTasks: any[] = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
+    let servicesTasks: any[] = await Timer.executeTimedTask(servicesWrapper, [5000]);
 
 
     let mainIntervals: any[] = await Timer.executeTimedTask(
         [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
         // [5*60*1000, 5*60*1000, 5*60*1000],
         [5000, 5000, 5000, 5000],
-        [10000, 10000, 10000, 10000]
     );
 
 
@@ -171,16 +170,15 @@ async function main (): Promise<void> {
                 [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
                 // [5*60*1000, 5*60*1000, 5*60*1000],
                 [5000, 5000, 5000, 5000],
-                [10000, 10000, 10000, 10000]
             );
             mainIntervalsCleared = false;
         }
         if (pingIntervalsCleared) {
-            pingTasks = await Timer.executeTimedTask(pingWrapper, [5000], [3000]);
+            pingTasks = await Timer.executeTimedTask(pingWrapper, [5000]);
             pingIntervalsCleared = false;
         }
         if (servicesIntervalsCleared) {
-            servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000], [0]);
+            servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000]);
             servicesIntervalsCleared = false;
         }
 
@@ -315,7 +313,7 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
     if (reachableServersIps.length === 0) throw new Error("No jobs given");
     const reachableServers: Servers[] = await s.getServersByIP(reachableServersIps);
     const toDo: ServicesOfServers[] = await s.getAllServersAndServicesIdsOfJobs(jobs);
-    const filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
+    const filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await s.getServersByIds([server.serverId])).id));
     if (filteredToDo.length === 0) throw new Error("No services can be tested");
     if (cache.get("toDo") !== undefined && (await compareArrays(toDo, cache.get("toDo")))) return;
     cache.set("toDo", toDo, 60*60);

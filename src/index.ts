@@ -27,15 +27,13 @@ async function main (): Promise<void> {
     // ? Send a message to something else ? (Trigger website for example, like a route)
 
     setInterval((): void => {
-        if (failedConnectionAttempts >= Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) {
-            (Database.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
-                if (centralServer !== newCentralServer) {
-                    console.log(theme.warningBright("New central server detected: " + newCentralServer));
-                    centralServer = newCentralServer;
-                    failedConnectionAttempts = 0;
-                }
-            });
-        }
+        if (failedConnectionAttempts < Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) return;
+        (Database.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
+            if (centralServer === newCentralServer) return;
+            console.log(theme.warningBright("New central server detected: " + JSON.stringify(newCentralServer)));
+            centralServer = newCentralServer;
+            failedConnectionAttempts = 0;
+        });
     }, Number(process.env.CENTRAL_SERVER_REFRESH_INTERVAL));
 
     let jobCacheUpdateCount: number = 0;
@@ -89,8 +87,8 @@ async function main (): Promise<void> {
     // GET ALL TASKS FROM REACHABLE SERVERS
     let toDo: ServicesOfServers[] = await Database.getAllServersAndServicesIdsOfJobs(jobs);
     let reachableServers: Servers[] = await Database.getServersByIP(reachableServersIps);
-    toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
-    if (toDo.length === 0) throw new Error("No services can be tested");
+    let filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
+    if (filteredToDo.length === 0) throw new Error("No services can be tested");
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));
     cache.set("toDo", toDo, 60*60);
     toDoCacheUpdateCount++;
@@ -313,8 +311,8 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
     if (reachableServersIps.length === 0) throw new Error("No jobs given");
     const reachableServers: Servers[] = await Database.getServersByIP(reachableServersIps);
     const toDo: ServicesOfServers[] = await Database.getAllServersAndServicesIdsOfJobs(jobs);
-    toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
-    if (toDo.length === 0) throw new Error("No services can be tested");
+    const filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await Database.getServersByIds([server.serverId])).id));
+    if (filteredToDo.length === 0) throw new Error("No services can be tested");
     if (cache.get("toDo") !== undefined && (await compareArrays(toDo, cache.get("toDo")))) return;
     cache.set("toDo", toDo, 60*60);
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));

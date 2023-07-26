@@ -1,4 +1,5 @@
 import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
+import { PingTemplate, ServiceTestTemplate } from "../templates/DataTemplates";
 
 // DATABASE
 const s = require('./database/Servers');
@@ -34,7 +35,7 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
                         cache.set("reachableServersIps", pingCache, 60*60);
                     }
                 }
-                const res: JSON = await makeServerPingJSON(server, status, ping);
+                const res: PingTemplate = await makeServerPingJSON(server, status, ping);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
@@ -66,7 +67,7 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                     user: process.env.SSH_USER,
                     ipAddr: server[0].ipAddr,
                 }, service[0] );
-                const res: JSON = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
+                const res: ServiceTestTemplate = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));
                 console.log(res);
@@ -86,9 +87,9 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
  * @returns {JSON} The JSON object
  * @throws {Error} If the pingInfo is empty
  */
-export function makeServerPingJSON (server: Servers, status: string, pingInfo: string[]): JSON {
+export function makeServerPingJSON (server: Servers, status: string, pingInfo: string[]): PingTemplate {
     if (pingInfo.length === 0) throw new Error("Ping info is empty");
-    return new Template.PingTemplate(server.id, server.ipAddr, status, pingInfo).toJSON();
+    return new Template.PingTemplate(server.id, server.ipAddr, status, pingInfo);
 }
 
 /**
@@ -100,7 +101,7 @@ export function makeServerPingJSON (server: Servers, status: string, pingInfo: s
  * @returns {JSON} The JSON object
  * @throws {Error} If the status is empty
  */
-export function makeServiceTestJSON (service: Services, server: Servers, job: Jobs, status: string[]): JSON {
+export function makeServiceTestJSON (service: Services, server: Servers, job: Jobs, status: string[]): ServiceTestTemplate {
     if (status.length === 0) throw new Error("Status is empty");
-    return new Template.ServiceTestTemplate(service.id, service.name, server.id, server.ipAddr, job.id, status).toJSON();
+    return new Template.ServiceTestTemplate(service.id, service.name, server.id, server.ipAddr, job.id, status);
 }

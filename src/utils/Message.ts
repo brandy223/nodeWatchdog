@@ -1,5 +1,6 @@
 
 import {Servers} from "@prisma/client";
+import {PingTemplate, ServiceTestTemplate} from "../templates/DataTemplates";
 
 // DATABASE
 const dbMisc = require('./database/Misc');
@@ -9,12 +10,10 @@ const theme = require('./ColorScheme').theme;
 
 /**
  * Send JSON data to main server
- * @param {any} data The data to send
+ * @param {PingTemplate | ServiceTestTemplate} data The data to send
  * @returns {Promise<void>}
- * @throws {Error} If the data is null or undefined
  */
-export async function sendDataToMainServer (data: any) : Promise<void> {
-    if (data === undefined || data === null) throw new Error("Data is null or undefined");
+export async function sendDataToMainServer (data: PingTemplate | ServiceTestTemplate) : Promise<void> {
     const centralServer: Servers = await dbMisc.getCurrentCentralServer();
 
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {

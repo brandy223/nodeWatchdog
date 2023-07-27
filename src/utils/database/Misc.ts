@@ -34,7 +34,7 @@ export async function getCurrentCentralServer(): Promise<Servers> {
     }
     else console.log(theme.warning(`Central server is not alive, trying to connect to backup server`));
 
-    const backupServer: Servers[] = centralServer.filter((server: Servers) => server.priority === 0)
+    const backupServer: Servers[] = centralServer.filter((server: Servers) => server.priority === 2)
     if (backupServer.length === 0) throw new Error("Backup central server not found");
     const isBackupServerAlive: string[] = await Network.pingServers([backupServer[0].ipAddr]);
     if (!isBackupServerAlive) throw new Error("Backup central server is not alive");

@@ -2,17 +2,12 @@
 
 import {config} from "../index";
 
-const ip = require("ip");
-const pingConfig = {
-    timeout: config.ping.timeout,
-    extra: config.ping.extra,
-}
-
 /**
  * Get the local IP address of the machine
  * @returns {string} The local IP address of the machine
  */
 export async function getLocalIP () : Promise<string> {
+    const ip = require("ip");
     return await ip.address();
 }
 
@@ -22,6 +17,10 @@ export async function getLocalIP () : Promise<string> {
  * @returns {Promise<string[]>} True if the IP Address is reachable, false otherwise + ping info
  */
 export async function ping (ip: string) : Promise<string[]> {
+    const pingConfig = {
+        timeout: config.ping.timeout,
+        extra: config.ping.extra,
+    }
     const ping = require('ping');
     const res = await ping.promise.probe(ip, pingConfig);
     const output: string[] = extractPingInfo(res.output);

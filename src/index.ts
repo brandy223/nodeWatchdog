@@ -309,7 +309,7 @@ async function updateReachableServersListInCache(servers: Servers[]): Promise<vo
     const reachableServersIps: string[] = await Network.pingServers(serversIps);
     if (reachableServersIps.length === 0) throw new Error("No servers reachable");
     if (cache.get("reachableServersIps") !== undefined && (await compareArrays(reachableServersIps, cache.get("reachableServersIps")))) return;
-    cache.set("reachableServersIps", reachableServersIps, config.servers.cache_duration)
+    cache.set("reachableServersIps", reachableServersIps, config.servers.cache_duration);
     console.log(theme.debug(`Reachable servers: ${JSON.stringify(reachableServersIps)}`));
 }
 

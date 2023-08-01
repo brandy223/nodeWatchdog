@@ -6,12 +6,16 @@ const s = require('./utils/database/Servers');
 const j = require('./utils/database/Jobs');
 const dbMisc = require('./utils/database/Misc');
 
+const dotenv = require('dotenv');
+dotenv.config();
+export const config = require("../config.json").config;
+
 const io= require('socket.io-client');
 const NodeCache = require("node-cache");
 export const cache = new NodeCache({
-    stdTTL: 30,
-    checkperiod: 60,
-    deleteOnExpire: true,
+    stdTTL: config.cache.default_ttl,
+    checkperiod: config.cache.check_period,
+    deleteOnExpire: config.cache.deleteOnExpire,
 });
 const Network = require('./utils/Network');
 const Timer = require('./utils/Timer');
@@ -31,14 +35,14 @@ async function main (): Promise<void> {
     // ? Send a message to something else ? (Trigger website for example, like a route)
 
     setInterval((): void => {
-        if (failedConnectionAttempts < Number(process.env.MAX_FAILED_CONNECTION_ATTEMPTS)) return;
+        if (failedConnectionAttempts < config.mainServer.max_failed_connections_attempts) return;
         (dbMisc.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
             if (centralServer === newCentralServer) return;
             console.log(theme.warningBright("New central server detected: " + JSON.stringify(newCentralServer)));
             centralServer = newCentralServer;
             failedConnectionAttempts = 0;
         });
-    }, Number(process.env.CENTRAL_SERVER_REFRESH_INTERVAL));
+    }, config.mainServer.check_period);
 
     let jobCacheUpdateCount: number = 0;
     let serversCacheUpdateCount: number = 0;
@@ -55,7 +59,7 @@ async function main (): Promise<void> {
     let jobs: Jobs[] = await j.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
     console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
-    cache.set("jobs", jobs, 60*60);
+    cache.set("jobs", jobs, config.jobs.cache_duration);
     jobCacheUpdateCount++;
     // Interval to update jobs
     const jobsInterval = async (): Promise<void> => {
@@ -67,7 +71,7 @@ async function main (): Promise<void> {
     let servers: Servers[] = await s.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
     console.log(theme.debug(`Servers: ${JSON.stringify(servers)}`));
-    cache.set("servers", servers, 60*60);
+    cache.set("servers", servers, config.servers.cache_duration);
     serversCacheUpdateCount++;
     // Interval to update servers
     const serversInterval = async (): Promise<void> => {
@@ -80,7 +84,7 @@ async function main (): Promise<void> {
     let reachableServersIps: string[] = await Network.pingServers(serversIps);
     if (reachableServersIps.length === 0) throw new Error("No reachable servers found");
     console.log(theme.debug(`Reachable servers: ${JSON.stringify(reachableServersIps)}`));
-    cache.set("reachableServersIps", reachableServersIps, 60*60);
+    cache.set("reachableServersIps", reachableServersIps, config.servers.cache_duration);
     reachableServersCacheUpdateCount++;
     // Interval to update reachable servers
     const reachableServersInterval = async (): Promise<void> => {
@@ -94,7 +98,7 @@ async function main (): Promise<void> {
     let filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await s.getServersByIds([server.serverId])).id));
     if (filteredToDo.length === 0) throw new Error("No services can be tested");
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));
-    cache.set("toDo", toDo, 60*60);
+    cache.set("toDo", toDo, config.services.cache_duration);
     toDoCacheUpdateCount++;
     // Interval to update the todo list
     const todoInterval = async (): Promise<void> => {
@@ -104,17 +108,21 @@ async function main (): Promise<void> {
 
     // PING SERVERS TO SEND TO CENTRAL SERVER
     let pingWrapper: any[] = await Services.pingFunctionsInArray(servers);
-    let pingTasks: any[] = await Timer.executeTimedTask(pingWrapper, [5000]);
+    let pingTasks: any[] = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
 
     // TEST SERVICES
     let servicesWrapper: any[] = await Services.systemctlTestFunctionsInArray(toDo);
-    let servicesTasks: any[] = await Timer.executeTimedTask(servicesWrapper, [5000]);
+    let servicesTasks: any[] = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
 
 
     let mainIntervals: any[] = await Timer.executeTimedTask(
         [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
-        // [5*60*1000, 5*60*1000, 5*60*1000],
-        [5000, 5000, 5000, 5000],
+        [
+            config.jobs.check_period,
+            config.servers.check_period,
+            config.servers.check_period,
+            config.services.check_period
+        ],
     );
 
 
@@ -168,17 +176,21 @@ async function main (): Promise<void> {
         if (mainIntervalsCleared) {
             mainIntervals = await Timer.executeTimedTask(
                 [jobsInterval, serversInterval, reachableServersInterval, todoInterval],
-                // [5*60*1000, 5*60*1000, 5*60*1000],
-                [5000, 5000, 5000, 5000],
+                [
+                    config.jobs.check_period,
+                    config.servers.check_period,
+                    config.servers.check_period,
+                    config.services.check_period
+                ],
             );
             mainIntervalsCleared = false;
         }
         if (pingIntervalsCleared) {
-            pingTasks = await Timer.executeTimedTask(pingWrapper, [5000]);
+            pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
             pingIntervalsCleared = false;
         }
         if (servicesIntervalsCleared) {
-            servicesTasks = await Timer.executeTimedTask(servicesWrapper, [5000]);
+            servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
             servicesIntervalsCleared = false;
         }
 
@@ -264,7 +276,7 @@ async function updateJobsListInCache(ip: string): Promise<void> {
     const jobs: Jobs[] = await j.getAllJobsOfNode(ip);
     if (jobs.length === 0) throw new Error("No jobs found");
     if (cache.get("jobs") !== undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
-    cache.set("jobs", jobs, 60*60)
+    cache.set("jobs", jobs, config.jobs.cache_duration)
     console.log(theme.debug(`Jobs: ${JSON.stringify(jobs)}`));
 }
 
@@ -280,7 +292,7 @@ async function updateServersListInCache(jobs: Jobs[]): Promise<void> {
     const servers: Servers[] = await s.getServersOfJobs(jobs);
     if (servers.length === 0) throw new Error("No servers found");
     if (cache.get("servers") !== undefined && (await compareArrays(servers, cache.get("servers")))) return;
-    cache.set("servers", servers, 60*60)
+    cache.set("servers", servers, config.servers.cache_duration)
     console.log(theme.debug(`Servers: ${JSON.stringify(servers)}`));
 }
 
@@ -297,7 +309,7 @@ async function updateReachableServersListInCache(servers: Servers[]): Promise<vo
     const reachableServersIps: string[] = await Network.pingServers(serversIps);
     if (reachableServersIps.length === 0) throw new Error("No servers reachable");
     if (cache.get("reachableServersIps") !== undefined && (await compareArrays(reachableServersIps, cache.get("reachableServersIps")))) return;
-    cache.set("reachableServersIps", reachableServersIps, 60*60)
+    cache.set("reachableServersIps", reachableServersIps, config.servers.cache_duration)
     console.log(theme.debug(`Reachable servers: ${JSON.stringify(reachableServersIps)}`));
 }
 
@@ -316,6 +328,6 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
     const filteredToDo: ServicesOfServers[] = toDo.filter(async (server: ServicesOfServers) => reachableServers.includes((await s.getServersByIds([server.serverId])).id));
     if (filteredToDo.length === 0) throw new Error("No services can be tested");
     if (cache.get("toDo") !== undefined && (await compareArrays(toDo, cache.get("toDo")))) return;
-    cache.set("toDo", toDo, 60*60);
+    cache.set("toDo", toDo, config.services.cache_duration);
     console.log(theme.debug(`Tasks to execute: ${JSON.stringify(toDo)}`));
 }

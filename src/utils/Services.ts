@@ -1,5 +1,6 @@
 import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
 import { PingTemplate, ServiceTestTemplate } from "../templates/DataTemplates";
+import {config} from "../index";
 
 // DATABASE
 const s = require('./database/Servers');
@@ -29,10 +30,10 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
                     status = "OK";
                     const pingCache = cache.get("reachableServersIps");
                     if (pingCache === undefined)
-                        cache.set("reachableServersIps", [ip], 60*60);
+                        cache.set("reachableServersIps", [ip], config.servers.cache_duration);
                     else {
                         pingCache.push(ip);
-                        cache.set("reachableServersIps", pingCache, 60*60);
+                        cache.set("reachableServersIps", pingCache, config.servers.cache_duration);
                     }
                 }
                 const res: PingTemplate = await makeServerPingJSON(server, status, ping);

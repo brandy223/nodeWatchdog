@@ -37,22 +37,20 @@ async function main (): Promise<void> {
 
     let failedConnectionAttempts: number = 0;
 
-    setInterval((): void => {
-        if (failedConnectionAttempts < config.mainServer.max_failed_connections_attempts) return;
-        (dbMisc.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
-            if (centralServer === newCentralServer) {
-                console.log(theme.warningBright("No new central server detected, retrying..."));
-                return;
-            }
-            console.log(theme.warningBright("New central server detected: " + JSON.stringify(newCentralServer)));
-            centralServer = newCentralServer;
-            failedConnectionAttempts = 0;
-        });
-    }, config.mainServer.check_period);
+    // setInterval((): void => {
+    //     if (failedConnectionAttempts < config.mainServer.max_failed_connections_attempts) return;
+    //     (dbMisc.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
+    //         if (centralServer === newCentralServer) {
+    //             console.log(theme.warningBright("No new central server detected, retrying..."));
+    //             return;
+    //         }
+    //         console.log(theme.warningBright("New central server detected: " + JSON.stringify(newCentralServer)));
+    //         centralServer = newCentralServer;
+    //         failedConnectionAttempts = 0;
+    //     });
+    // }, config.mainServer.check_period);
 
-    let mainIntervalsCleared: boolean = false;
-    let pingIntervalsCleared: boolean = false;
-    let servicesIntervalsCleared: boolean = false;
+    let intervalsCleared: boolean = false;
 
     let jobs: Jobs[] = [];
     let servers: Servers[] = [];
@@ -92,41 +90,32 @@ async function main (): Promise<void> {
     });
 
     mainSocket.on("error", async (): Promise<void> => {
-        if (!pingIntervalsCleared) {
+        if (!intervalsCleared) {
             await Timer.clearAllIntervals(pingTasks);
-            pingIntervalsCleared = true;
-        }
-        if (!servicesIntervalsCleared) {
             await Timer.clearAllIntervals(servicesTasks);
-            servicesIntervalsCleared = true;
+            intervalsCleared = true;
         }
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
         failedConnectionAttempts++;
     });
 
     mainSocket.on("connect_error", async (err: Error): Promise<void> => {
-        if (!pingIntervalsCleared) {
+        if (!intervalsCleared) {
             await Timer.clearAllIntervals(pingTasks);
-            pingIntervalsCleared = true;
-        }
-        if (!servicesIntervalsCleared) {
             await Timer.clearAllIntervals(servicesTasks);
-            servicesIntervalsCleared = true;
+            intervalsCleared = true;
         }
         console.error(theme.error("connection failed: " + err));
         failedConnectionAttempts++;
     });
 
     mainSocket.on('connect', async (): Promise<void> => {
-        if (pingIntervalsCleared) {
+        failedConnectionAttempts = 0;
+        if (intervalsCleared) {
             pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
-            pingIntervalsCleared = false;
-        }
-        if (servicesIntervalsCleared) {
             servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
-            servicesIntervalsCleared = false;
+            intervalsCleared = false;
         }
-
         mainSocket.emit('main_connection', ip);
     });
 
@@ -134,7 +123,7 @@ async function main (): Promise<void> {
         console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
     });
 
-    mainSocket.on("room_broadcast", (message: object): void => {
+    mainSocket.on("room_broadcast", (message: any): void => {
         console.log(theme.bgWarning("Central Server's broadcast :"));
         console.log(message);
     });
@@ -174,6 +163,7 @@ async function main (): Promise<void> {
             case "reachableServersIps":
                 reachableServersIps = value;
                 await clearAllIntervals(servicesTasks);
+
                 await updateTodoListInCache(reachableServersIps, cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
                 if (servicesWrapper[0] === -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
@@ -181,6 +171,7 @@ async function main (): Promise<void> {
             case "toDo":
                 toDo = value;
                 await clearAllIntervals(servicesTasks);
+
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(toDo);
                 if (servicesWrapper[0] === -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
                 break;
@@ -193,19 +184,19 @@ async function main (): Promise<void> {
                 await updateJobsListInCache(ip);
                 await updateServersListInCache(cache.get("jobs") ?? []);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(reachableServersIps, cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
                 break;
             case "servers":
                 await updateServersListInCache(cache.get("jobs") ?? []);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(reachableServersIps, cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
                 break;
             case "reachableServersIps":
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(cache.get("reachableServersIps"), cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
                 break;
             case "toDo":
-                await updateTodoListInCache(reachableServersIps, cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
                 break;
         }
     });

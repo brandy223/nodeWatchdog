@@ -37,6 +37,7 @@ export async function sendDataToMainServer (data: PingTemplate | ServiceTestTemp
 
     socket.on('connect', (): void => {
         socket.emit('message', data);
+        socket.disconnect();
         socket.close();
     });
 }

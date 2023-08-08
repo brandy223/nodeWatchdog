@@ -35,7 +35,12 @@ export async function ping (ip: string) : Promise<string[]> {
  * @returns {Promise<boolean>} True if the connection is established, false otherwise
  */
 export function testConnectionToSocket (ip: string, port: number) : Promise<boolean> {
-    const socket = require('socket.io-client')(`http://${ip}:${port}`);
+    const socket = require('socket.io-client')(`http://${ip}:${port}`,
+        {
+            reconnection: false,
+            transports: ["polling"],
+            allowEIO3: true, // false by default
+        });
     return new Promise((resolve, reject): void => {
         socket.on('connect', (): void => {
             socket.emit("test_connection", "OK");
@@ -44,10 +49,12 @@ export function testConnectionToSocket (ip: string, port: number) : Promise<bool
             console.log("Test connection ack: " + message);
             resolve(true);
             socket.disconnect();
+            socket.close()
         });
         socket.on('connect_error', (): void => {
             resolve(false);
             socket.disconnect();
+            socket.close()
         });
     });
 }

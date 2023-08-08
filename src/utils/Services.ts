@@ -20,6 +20,10 @@ const cache = require("../index").cache;
  * @return {Promise<any[]>} Array of ping functions
  */
 export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
+    if (servers.length === 0) {
+        console.log(theme.warning("No servers to ping"));
+        return [-1];
+    }
     const pingFunctions: (() => void)[] = [];
     for (const server of servers) {
         const ping = (ip: string): (() => void) => {
@@ -54,6 +58,10 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
  * @return {Promise<any[]>} Array of systemctl test functions
  */
 export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): Promise<any[]> {
+    if (jobs.length === 0) {
+        console.log(theme.warning("No services to test"));
+        return [-1];
+    }
     const systemctlTestFunctions: (() => void)[] = [];
     for (const job of jobs) {
         const service = (job: ServicesOfServers): (() => void) => {

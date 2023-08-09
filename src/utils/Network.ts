@@ -1,6 +1,9 @@
 'use strict';
 
-import {config} from "../index";
+import {centralServer, config} from "../index";
+import {Socket} from "socket.io-client";
+
+const io= require('socket.io-client');
 
 /**
  * Get the local IP address of the machine
@@ -87,4 +90,24 @@ export async function pingServers (ipList: string[]) : Promise<string[]> {
         if ((await ping(ip))[0]) reachableIPList.push(ip);
     }
     return reachableIPList;
+}
+
+/**
+ * Init the node server socket to communicate with the central server
+ * @param {string} ip The IP Address of the central server
+ * @param {number} port The port of the central server
+ * @throws {Error} If the port is null
+ */
+export function initNodeServerSocket (ip: string, port: number | null): Socket {
+    if (port === null) throw new Error("Central server port is null");
+    return io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
+        reconnection: true,
+        cors: {
+            origin: centralServer.ipAddr,
+            methods: ['GET', 'POST']
+        },
+        withCredentials: true,
+        transports: ["polling"],
+        allowEIO3: true, // false by default
+    });
 }

@@ -1,6 +1,9 @@
 
 import {Jobs, Servers, ServicesOfServers} from "@prisma/client";
 import {clearAllIntervals} from "./utils/Timer";
+import {Socket} from "socket.io-client";
+import {clearInterval} from "timers";
+import {initNodeServerSocket} from "./utils/Network";
 
 // DATABASE
 const s = require('./utils/database/Servers');
@@ -25,6 +28,12 @@ const compareArrays = require('./utils/utilities/Arrays').compareArrays;
 const theme = require('./utils/ColorScheme').theme;
 
 export let centralServer: Servers;
+let mainSocket: Socket;
+
+let connectionFlag: boolean = false;
+let failedConnectionAttempts: number = 0;
+let pingTasks: any[];
+let servicesTasks: any[];
 
 /**
  * Main function
@@ -32,91 +41,63 @@ export let centralServer: Servers;
 async function main (): Promise<void> {
     const ip: string = await dbMisc.nodeServerDatabaseInit();
     centralServer = await dbMisc.getCurrentCentralServer();
+    mainSocket = await initNodeServerSocket(centralServer.ipAddr, centralServer.port);
+    connectionFlag = true;
 
-    // TODO: NEED TO SEND SOMETHING WHEN NO CENTRAL SERVER BEFORE CRASH OF NODE APP
-    // ? Remove Error throw and stand by ?
     // ? Send a message to something else ? (Trigger website for example, like a route)
 
-    let failedConnectionAttempts: number = 0;
+    let centralServerWatchdog: any;
 
     let pingWrapper: any[];
-    let pingTasks: any[]
     let servicesWrapper: any[];
-    let servicesTasks: any[];
 
-    // setInterval((): void => {
-    //     if (failedConnectionAttempts < config.mainServer.max_failed_connections_attempts) return;
-    //     (dbMisc.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
-    //         if (centralServer === newCentralServer) {
-    //             console.log(theme.warningBright("No new central server detected, retrying..."));
-    //             return;
-    //         }
-    //         console.log(theme.warningBright("New central server detected: " + JSON.stringify(newCentralServer)));
-    //         centralServer = newCentralServer;
-    //         failedConnectionAttempts = 0;
-    //     });
-    // }, config.mainServer.check_period);
+     centralServerWatchdog = setInterval((): void => {
+        if (failedConnectionAttempts < config.mainServer.max_failed_connections_attempts) return;
+        mainSocket.close();
+        clearAllIntervals(pingTasks);
+        clearAllIntervals(servicesTasks);
+        connectionFlag = false;
+        clearInterval(centralServerWatchdog);
+        console.log(theme.errorBright("Max failed connection attempts reached, cleared all intervals, retrying..."));
+        (dbMisc.getCurrentCentralServer()).then((newCentralServer: Servers): void => {
+            if (centralServer.ipAddr !== newCentralServer.ipAddr) {
+                console.log(theme.warningBright("New central server detected: " + newCentralServer.ipAddr));
+                centralServer = newCentralServer;
+            } else console.log(theme.warningBright("No new central server detected"));
 
-    await updateJobsListInCache(ip);
-    let jobs: Jobs[] = cache.get("jobs");
-    await updateServersListInCache(jobs);
-    let servers: Servers[] = cache.get("servers");
-    await updateReachableServersListInCache(servers);
-    let reachableServersIps: string[] = cache.get("reachableServersIps");
-    await updateTodoListInCache(reachableServersIps, jobs);
-    let toDo: ServicesOfServers[] = cache.get("toDo");
+            mainSocket = initNodeServerSocket(centralServer.ipAddr, centralServer.port);
+            addEventsToNodeSocket(ip);
 
-    // MAIN SOCKET FOR CENTRAL SERVER BROADCAST
-    const mainSocket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
-        reconnection: true,
-        cors: {
-            origin: centralServer.ipAddr,
-            methods: ['GET', 'POST']
-        },
-        withCredentials: true,
-        transports: ["polling"],
-        allowEIO3: true, // false by default
-    });
+            failedConnectionAttempts = 0;
+            connectionFlag = true;
+            initCacheValues(ip);
+            // TODO: Need to restart this setInterval function
+        });
+    }, config.mainServer.check_period);
 
-    // PING SERVERS TO SEND TO CENTRAL SERVER
+        //* Add event listeners to main socket
+    addEventsToNodeSocket(ip);
+
+        //* Init cache values
+
+    await initCacheValues(ip);
+    let jobs: Jobs[] = cache.get("jobs") ?? [];
+    let servers: Servers[] = cache.get("servers") ?? [];
+    let reachableServersIps: string[] = cache.get("reachableServersIps") ?? [];
+    let toDo: ServicesOfServers[] = cache.get("toDo") ?? [];
+
+
+        //* PING SERVERS
     pingWrapper = await Services.pingFunctionsInArray(servers);
     pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
 
-    // TEST SERVICES
+        //* TEST SERVICES
     servicesWrapper = await Services.systemctlTestFunctionsInArray(toDo)
     servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
 
-    mainSocket.on("error", async (): Promise<void> => {
-        await Timer.clearAllIntervals(pingTasks);
-        await Timer.clearAllIntervals(servicesTasks);
-        console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
-        failedConnectionAttempts++;
-    });
-
-    mainSocket.on("connect_error", async (err: Error): Promise<void> => {
-        await Timer.clearAllIntervals(pingTasks);
-        await Timer.clearAllIntervals(servicesTasks);
-        console.error(theme.error("connection failed: " + err));
-        failedConnectionAttempts++;
-    });
-
-    mainSocket.on('connect', async (): Promise<void> => {
-        mainSocket.emit('main_connection', ip);
-        failedConnectionAttempts = 0;
-    });
-
-    mainSocket.on("main_connection_ack", (message: string): void => {
-        console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
-    });
-
-    mainSocket.on("room_broadcast", (message: any): void => {
-        console.log(theme.bgWarning("Central Server's broadcast :"));
-        console.log(message);
-    });
-
         //* CACHE EVENTS
-
     cache.on("del", async (key: string): Promise<void> => {
+        if (!connectionFlag) return;
         switch (key) {
             case "jobs":
                 await clearAllIntervals(pingTasks);
@@ -124,7 +105,7 @@ async function main (): Promise<void> {
                 await updateJobsListInCache(ip);
                 await updateServersListInCache(cache.get("jobs") ?? []);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
                 if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
@@ -135,7 +116,7 @@ async function main (): Promise<void> {
                 await clearAllIntervals(servicesTasks);
                 await updateServersListInCache(cache.get("jobs") ?? []);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
                 if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
@@ -144,13 +125,13 @@ async function main (): Promise<void> {
             case "reachableServersIps":
                 await clearAllIntervals(servicesTasks);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
                 if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
                 break;
             case "toDo":
                 await clearAllIntervals(servicesTasks);
-                await updateTodoListInCache(cache.get("reachableServersIps" ?? []), cache.get("jobs") ?? []);
+                await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
                 if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
                 break;
@@ -158,7 +139,21 @@ async function main (): Promise<void> {
     });
 }
 
-main();
+main().then(() => {
+    console.log(theme.bgSuccess("Everything is up and running!"));
+});
+
+/**
+ * Init the values that will be used in the cache
+ * @param {string} ip IP of the node server
+ * @return {Promise<void>}
+ */
+async function initCacheValues(ip: string): Promise<void> {
+    await updateJobsListInCache(ip);
+    await updateServersListInCache(cache.get("jobs") ?? []);
+    await updateReachableServersListInCache(cache.get("servers") ?? []);
+    await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
+}
 
 /**
  * Update the jobs list in cache
@@ -213,4 +208,38 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
     if (cache.get("toDo") !== undefined && (await compareArrays(filteredToDo, cache.get("toDo")))) return;
     cache.set("toDo", filteredToDo, config.services.cache_duration);
     console.log(theme.debug(`Todo list updated in cache`));
+}
+
+/**
+ * Init the node server socket to communicate with the central server
+ * @param {string} ip IP of the node server
+ */
+function addEventsToNodeSocket(ip: string): void {
+    mainSocket.on('connect', async (): Promise<void> => {
+        mainSocket.emit('main_connection', ip);
+        failedConnectionAttempts = 0;
+    });
+
+    mainSocket.on("main_connection_ack", (message: string): void => {
+        console.log(theme.bgSuccess("Central Server Main Connection ACK: " + message));
+    });
+
+    mainSocket.on("room_broadcast", (message: any): void => {
+        console.log(theme.bgWarning("Central Server's broadcast :"));
+        console.log(message);
+    });
+
+    mainSocket.on("error", async (): Promise<void> => {
+        await Timer.clearAllIntervals(pingTasks);
+        await Timer.clearAllIntervals(servicesTasks);
+        console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
+        failedConnectionAttempts++;
+    });
+
+    mainSocket.on("connect_error", async (err: Error): Promise<void> => {
+        await Timer.clearAllIntervals(pingTasks);
+        await Timer.clearAllIntervals(servicesTasks);
+        console.error(theme.error("connection failed: " + err));
+        failedConnectionAttempts++;
+    });
 }

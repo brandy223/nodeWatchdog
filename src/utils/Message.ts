@@ -1,6 +1,6 @@
 
-import {Servers} from "@prisma/client";
 import {PingTemplate, ServiceTestTemplate} from "../templates/DataTemplates";
+import { centralServer } from "../index";
 
 // DATABASE
 const dbMisc = require('./database/Misc');
@@ -14,10 +14,8 @@ const theme = require('./ColorScheme').theme;
  * @returns {Promise<void>}
  */
 export async function sendDataToMainServer (data: PingTemplate | ServiceTestTemplate) : Promise<void> {
-    const centralServer: Servers = await dbMisc.getCurrentCentralServer();
-
     const socket = io(`http://${centralServer.ipAddr}:${centralServer.port}`, {
-        reconnection: true,
+        reconnection: false,
         cors: {
             origin: centralServer.ipAddr,
             methods: ['GET', 'POST']

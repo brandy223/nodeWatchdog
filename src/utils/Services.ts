@@ -1,6 +1,6 @@
 import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
 import { PingTemplate, ServiceTestTemplate } from "../templates/DataTemplates";
-import {config} from "../index";
+import {cache, config} from "../index";
 
 // DATABASE
 const s = require('./database/Servers');
@@ -12,7 +12,6 @@ const Message = require('./Message');
 const BasicServices = require('../services/BasicServices');
 const Template = require('../templates/DataTemplates');
 const theme = require('./ColorScheme').theme;
-const cache = require("../index").cache;
 
 /**
  * Make an array that contains ping functions and store each reachable server in cache
@@ -32,8 +31,8 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
                 const ping: string[] = await Network.ping(ip);
                 if (Boolean(ping.shift())) {
                     status = "OK";
-                    const pingCache = cache.get("reachableServersIps");
-                    if (pingCache === undefined)
+                    const pingCache = cache.get("reachableServersIps") ?? [];
+                    if (pingCache.length === 0)
                         cache.set("reachableServersIps", [ip], config.servers.cache_duration);
                     else {
                         pingCache.push(ip);
@@ -70,7 +69,7 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                 const service: Services[] = await dbServices.getServicesById([job.serviceId]);
                 const jobObj: Jobs[] = await j.getJobsByIds([job.jobId as number]);
 
-                // TODO: replace variables below
+                // TODO: replace variables below ??
 
                 const status: string[] = await BasicServices.isServiceActive({
                     user: process.env.SSH_USER,

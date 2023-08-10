@@ -20,7 +20,6 @@ const dotenv = require('dotenv');
 dotenv.config();
 export const config = require("../config.json").config;
 
-const io= require('socket.io-client');
 const NodeCache = require("node-cache");
 export const cache = new NodeCache({
     stdTTL: config.cache.default_ttl,
@@ -31,9 +30,14 @@ export const cache = new NodeCache({
 
 export let centralServer: Servers;
 let mainSocket: Socket;
+let centralServerWatchdog: any;
 
 let connectionFlag: boolean = false;
+let cacheFlushFlag: boolean = false;
 let failedConnectionAttempts: number = 0;
+
+let pingWrapper: any[];
+let servicesWrapper: any[];
 let pingTasks: any[];
 let servicesTasks: any[];
 
@@ -48,46 +52,33 @@ async function main (): Promise<void> {
 
     // ? Send a message to something else ? (Trigger website for example, like a route)
 
-    // let centralServerWatchdog: any;
-
-    let pingWrapper: any[];
-    let servicesWrapper: any[];
-
         //* Watchdog for central server connection
-     mainServerWatchdog(ip);
+     centralServerWatchdog = mainServerWatchdog(ip);
 
         //* Add event listeners to main socket
     addEventsToNodeSocket(ip);
 
-        //* Init cache values
-    await initCacheValues(ip);
-    let servers: Servers[] = cache.get("servers") ?? [];
-    let toDo: ServicesOfServers[] = cache.get("toDo") ?? [];
-
-
-        //* PING SERVERS
-    pingWrapper = await Services.pingFunctionsInArray(servers);
-    pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
-
-        //* TEST SERVICES
-    servicesWrapper = await Services.systemctlTestFunctionsInArray(toDo)
-    servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
-
         //* CACHE EVENTS
+    cache.on("flush", (): void => {
+        if (cacheFlushFlag) {
+            console.log(theme.bgWarning("Cache has been flushed!"));
+        }
+    });
+
     cache.on("del", async (key: string): Promise<void> => {
         if (!connectionFlag) return;
         switch (key) {
+
+            // ? Instead of updating all these values, why not simply watch jobs cache value only to simply update all the values each time ??
+
             case "jobs":
                 clearAllIntervals(pingTasks);
                 clearAllIntervals(servicesTasks);
-                await updateJobsListInCache(ip);
-                await updateServersListInCache(cache.get("jobs") ?? []);
-                await updateReachableServersListInCache(cache.get("servers") ?? []);
-                await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
-                pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
-                if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
-                servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
+                cache.flushAll();
+                cacheFlushFlag = true;
+                await initCacheValues(ip);
+                cacheFlushFlag = false;
+                await updateAllTasks();
                 break;
             case "servers":
                 clearAllIntervals(pingTasks);
@@ -95,23 +86,20 @@ async function main (): Promise<void> {
                 await updateServersListInCache(cache.get("jobs") ?? []);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
                 await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
-                pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
-                if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
-                servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
+                await updateAllTasks();
                 break;
             case "reachableServersIps":
                 clearAllIntervals(servicesTasks);
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
                 await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
+                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
                 break;
             case "toDo":
                 clearAllIntervals(servicesTasks);
                 await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period])
+                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
                 break;
         }
     });
@@ -141,7 +129,7 @@ async function initCacheValues(ip: string): Promise<void> {
 async function updateJobsListInCache(ip: string): Promise<void> {
     const jobs: Jobs[] = await j.getAllJobsOfNode(ip);
     if (cache.get("jobs") !== undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
-    cache.set("jobs", jobs, config.jobs.cache_duration)
+    cache.set("jobs", jobs, config.jobs.cache_duration);
     console.log(theme.debug(`Jobs updated in cache`));
 }
 
@@ -173,7 +161,7 @@ async function updateReachableServersListInCache(servers: Servers[]): Promise<vo
 }
 
 /**
- * Update the toDo list in cache
+ * Update the to-do list in cache
  * @param {string[]} reachableServersIps List of reachable servers
  * @param {Jobs[]} jobs List of jobs
  * @return {Promise<void>}
@@ -189,6 +177,17 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
 }
 
 /**
+ * Update tasks to run
+ * @return {Promise<void>}
+ */
+async function updateAllTasks(): Promise<void> {
+    pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
+    if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
+    servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
+    if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
+}
+
+/**
  * Main server connection watchdog
  * @param {string} localIp IP of the node server
  * @return {NodeJS.Timer} setInterval function of the watchdog
@@ -200,7 +199,8 @@ function mainServerWatchdog(localIp: string): NodeJS.Timer {
         clearAllIntervals(pingTasks);
         clearAllIntervals(servicesTasks);
         connectionFlag = false;
-        clearInterval(this);
+        cache.flushAll();
+        clearInterval(centralServerWatchdog);
         console.log(theme.errorBright("Max failed connection attempts reached, cleared all intervals, retrying..."));
         (dbMisc.getCurrentCentralServer()).then( async (newCentralServer: Servers): Promise<void> => {
             if (centralServer.ipAddr !== newCentralServer.ipAddr) {
@@ -214,7 +214,9 @@ function mainServerWatchdog(localIp: string): NodeJS.Timer {
             failedConnectionAttempts = 0;
             connectionFlag = true;
             await initCacheValues(localIp);
-            mainServerWatchdog(localIp);
+            cacheFlushFlag = false;
+            await updateAllTasks();
+            centralServerWatchdog = mainServerWatchdog(localIp);
         });
     }, config.mainServer.check_period);
 }
@@ -226,6 +228,9 @@ function mainServerWatchdog(localIp: string): NodeJS.Timer {
 function addEventsToNodeSocket(ip: string): void {
     mainSocket.on('connect', async (): Promise<void> => {
         mainSocket.emit('main_connection', ip);
+        await initCacheValues(ip);
+        cacheFlushFlag = false;
+        await updateAllTasks();
         failedConnectionAttempts = 0;
     });
 
@@ -241,6 +246,8 @@ function addEventsToNodeSocket(ip: string): void {
     mainSocket.on("error", async (): Promise<void> => {
         await Timer.clearAllIntervals(pingTasks);
         await Timer.clearAllIntervals(servicesTasks);
+        cache.flushAll();
+        cacheFlushFlag = true;
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
         failedConnectionAttempts++;
     });
@@ -248,6 +255,8 @@ function addEventsToNodeSocket(ip: string): void {
     mainSocket.on("connect_error", async (err: Error): Promise<void> => {
         await Timer.clearAllIntervals(pingTasks);
         await Timer.clearAllIntervals(servicesTasks);
+        cache.flushAll();
+        cacheFlushFlag = true;
         console.error(theme.error("connection failed: " + err));
         failedConnectionAttempts++;
     });

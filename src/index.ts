@@ -33,7 +33,7 @@ let mainSocket: Socket;
 let centralServerWatchdog: any;
 
 let connectionFlag: boolean = false;
-let cacheFlushFlag: boolean = false;
+let cacheFlushCounter: number = 0;
 let failedConnectionAttempts: number = 0;
 
 let pingWrapper: any[];
@@ -60,7 +60,7 @@ async function main (): Promise<void> {
 
         //* CACHE EVENTS
     cache.on("flush", (): void => {
-        if (cacheFlushFlag) {
+        if (cacheFlushCounter === 1) {
             console.log(theme.bgWarning("Cache has been flushed!"));
         }
     });
@@ -75,9 +75,9 @@ async function main (): Promise<void> {
                 clearAllIntervals(pingTasks);
                 clearAllIntervals(servicesTasks);
                 cache.flushAll();
-                cacheFlushFlag = true;
+                cacheFlushCounter++;
                 await initCacheValues(ip);
-                cacheFlushFlag = false;
+                cacheFlushCounter = 0;
                 await updateAllTasks();
                 break;
             case "servers":
@@ -200,6 +200,7 @@ function mainServerWatchdog(localIp: string): NodeJS.Timer {
         clearAllIntervals(servicesTasks);
         connectionFlag = false;
         cache.flushAll();
+        cacheFlushCounter++;
         clearInterval(centralServerWatchdog);
         console.log(theme.errorBright("Max failed connection attempts reached, cleared all intervals, retrying..."));
         (dbMisc.getCurrentCentralServer()).then( async (newCentralServer: Servers): Promise<void> => {
@@ -214,7 +215,7 @@ function mainServerWatchdog(localIp: string): NodeJS.Timer {
             failedConnectionAttempts = 0;
             connectionFlag = true;
             await initCacheValues(localIp);
-            cacheFlushFlag = false;
+            cacheFlushCounter = 0;
             await updateAllTasks();
             centralServerWatchdog = mainServerWatchdog(localIp);
         });
@@ -229,7 +230,7 @@ function addEventsToNodeSocket(ip: string): void {
     mainSocket.on('connect', async (): Promise<void> => {
         mainSocket.emit('main_connection', ip);
         await initCacheValues(ip);
-        cacheFlushFlag = false;
+        cacheFlushCounter = 0;
         await updateAllTasks();
         failedConnectionAttempts = 0;
     });
@@ -247,7 +248,7 @@ function addEventsToNodeSocket(ip: string): void {
         await Timer.clearAllIntervals(pingTasks);
         await Timer.clearAllIntervals(servicesTasks);
         cache.flushAll();
-        cacheFlushFlag = true;
+        cacheFlushCounter++;
         console.error(theme.error("Sorry, there seems to be an issue with the connection!"));
         failedConnectionAttempts++;
     });
@@ -256,7 +257,7 @@ function addEventsToNodeSocket(ip: string): void {
         await Timer.clearAllIntervals(pingTasks);
         await Timer.clearAllIntervals(servicesTasks);
         cache.flushAll();
-        cacheFlushFlag = true;
+        cacheFlushCounter++;
         console.error(theme.error("connection failed: " + err));
         failedConnectionAttempts++;
     });

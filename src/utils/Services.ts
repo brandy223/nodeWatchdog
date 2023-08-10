@@ -98,7 +98,7 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
  */
 export function makeServerPingJSON (server: Servers, status: string, pingInfo: string[]): PingTemplate {
     if (pingInfo.length === 0) throw new Error("Ping info is empty");
-    return new Template.PingTemplate(server.id, server.ipAddr, status, pingInfo);
+    return new Template.PingTemplate(server.id, server.ipAddr, status, pingInfo, null);
 }
 
 /**

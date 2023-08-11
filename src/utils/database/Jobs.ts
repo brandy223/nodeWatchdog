@@ -34,7 +34,6 @@ export async function getAllJobsOfNode (ip: string) : Promise<Jobs[]> {
 
     const server: Servers = (await s.getServersByIP([ip]))[0];
     const jobsId: ServersOfJobs[] = await prisma.serversOfJobs.findMany({ where: { serverId: server.id } });
-    if (jobsId.length === 0) throw new Error("Server jobs not found");
-
+    if (jobsId.length === 0) return [];
     return getJobsByIds(jobsId.map((job: ServersOfJobs) => job.jobId));
 }

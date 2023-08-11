@@ -27,7 +27,6 @@ export const cache = new NodeCache({
     deleteOnExpire: config.cache.deleteOnExpire,
 });
 
-
 export let centralServer: Servers;
 let mainSocket: Socket;
 let centralServerWatchdog: any;
@@ -41,11 +40,13 @@ let servicesWrapper: any[];
 let pingTasks: any[];
 let servicesTasks: any[];
 
+export let ip: string;
+
 /**
  * Main function
  */
 async function main (): Promise<void> {
-    const ip: string = await dbMisc.nodeServerDatabaseInit();
+    ip = await dbMisc.nodeServerDatabaseInit();
     centralServer = await dbMisc.getCurrentCentralServer();
     mainSocket = initNodeServerSocket(centralServer.ipAddr, centralServer.port);
     connectionFlag = true;
@@ -93,13 +94,13 @@ async function main (): Promise<void> {
                 await updateReachableServersListInCache(cache.get("servers") ?? []);
                 await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
+                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTasks(servicesWrapper, [config.services.check_period]);
                 break;
             case "toDo":
                 clearAllIntervals(servicesTasks);
                 await updateTodoListInCache(cache.get("reachableServersIps") ?? [], cache.get("jobs") ?? []);
                 servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
+                if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTasks(servicesWrapper, [config.services.check_period]);
                 break;
         }
     });
@@ -128,6 +129,10 @@ async function initCacheValues(ip: string): Promise<void> {
  */
 async function updateJobsListInCache(ip: string): Promise<void> {
     const jobs: Jobs[] = await j.getAllJobsOfNode(ip);
+    if (jobs.length === 0) {
+        console.log(theme.warning(`No jobs found for this node server`));
+        return;
+    }
     if (cache.get("jobs") !== undefined && (await compareArrays(jobs, cache.get("jobs")))) return;
     cache.set("jobs", jobs, config.jobs.cache_duration);
     console.log(theme.debug(`Jobs updated in cache`));
@@ -184,7 +189,7 @@ async function updateAllTasks(): Promise<void> {
     pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
     if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
     servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
-    if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTask(servicesWrapper, [config.services.check_period]);
+    if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTasks(servicesWrapper, [config.services.check_period]);
 }
 
 /**

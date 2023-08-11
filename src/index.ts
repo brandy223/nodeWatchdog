@@ -2,7 +2,6 @@
 import {Jobs, Servers, ServicesOfServers} from "@prisma/client";
 import {clearAllIntervals} from "./utils/Timer";
 import {Socket} from "socket.io-client";
-import {clearInterval} from "timers";
 import {initNodeServerSocket} from "./utils/Network";
 
 // DATABASE
@@ -187,7 +186,7 @@ async function updateTodoListInCache(reachableServersIps: string[], jobs: Jobs[]
  */
 async function updateAllTasks(): Promise<void> {
     pingWrapper = await Services.pingFunctionsInArray(cache.get("servers") ?? []);
-    if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTask(pingWrapper, [config.servers.check_period]);
+    if (pingWrapper[0] !== -1) pingTasks = await Timer.executeTimedTasks(pingWrapper, [config.servers.check_period]);
     servicesWrapper = await Services.systemctlTestFunctionsInArray(cache.get("toDo") ?? []);
     if (servicesWrapper[0] !== -1) servicesTasks = await Timer.executeTimedTasks(servicesWrapper, [config.services.check_period]);
 }

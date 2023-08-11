@@ -66,7 +66,6 @@ export function testConnectionToSocket (ip: string, port: number) : Promise<bool
             socket.close()
         });
     });
-    // return true;
 }
 
 /**

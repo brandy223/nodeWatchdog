@@ -69,12 +69,22 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                 const service: Services[] = await dbServices.getServicesById([job.serviceId]);
                 const jobObj: Jobs[] = await j.getJobsByIds([job.jobId as number]);
 
-                // TODO: replace variables below ??
+                const user: string | undefined = server[0].sshUser ? server[0].sshUser : process.env.SSH_USER;
+                const cmd: string = server[0].serviceStatusCmd ?? "service";
 
                 const status: string[] = await BasicServices.isServiceActive({
-                    user: process.env.SSH_USER,
+                    user: user as string,
                     ipAddr: server[0].ipAddr,
+                    cmd: cmd,
                 }, service[0] );
+                if (status.length === 0) {
+                    console.log(theme.warning("No status for service " + service[0].name + " of server " + server[0].ipAddr));
+                    const res: ServiceTestTemplate = await makeServiceTestJSON(service[0], server[0], jobObj[0], ["false"]);
+                    await Message.sendDataToMainServer(res);
+                    console.log(theme.bgInfo("Message to be send to main server : "));
+                    console.log(res);
+                    return;
+                }
                 const res: ServiceTestTemplate = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));

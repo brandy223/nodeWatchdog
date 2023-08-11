@@ -29,7 +29,7 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
             return async (): Promise<void> => {
                 let status: string = "KO";
                 const ping: string[] = await Network.ping(ip);
-                if (Boolean(ping.shift())) {
+                if (Boolean(ping[0])) {
                     status = "OK";
                     const pingCache = cache.get("reachableServersIps") ?? [];
                     if (pingCache.length === 0)

@@ -6,15 +6,18 @@
  * @return {Promise<any[]>} Array of setIntervals variables
  * @throws {Error} If the number of functions, intervals and timeouts is not the same
  */
-export async function executeTimedTask(functions: (() => void)[], intervals: number[]): Promise<any[]> {
-    if (functions.length !== intervals.length)
+export async function executeTimedTasks(functions: (() => void)[], intervals: number[]): Promise<any[]> {
+    if (functions.length !== intervals.length && intervals.length !== 1)
         throw new Error("The number of functions, intervals and timeouts must be the same");
 
     const intervalsTabs: any[] = [];
 
     for (let i = 0; i < functions.length; i++) {
         const fct = functions[i];
-        const interval: number = intervals[i];
+
+        let interval: number = 0;
+        if (intervals.length === 1) interval = intervals[0];
+        else interval = intervals[i];
 
         const intervalVar = setInterval((): void => {
             fct();

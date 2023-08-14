@@ -1,6 +1,6 @@
 import {Jobs, Servers, Services, ServicesOfServers} from "@prisma/client";
 import { PingTemplate, ServiceTestTemplate } from "../templates/DataTemplates";
-import {config} from "../index";
+import {cache, config} from "../index";
 
 // DATABASE
 const s = require('./database/Servers');
@@ -12,7 +12,6 @@ const Message = require('./Message');
 const BasicServices = require('../services/BasicServices');
 const Template = require('../templates/DataTemplates');
 const theme = require('./ColorScheme').theme;
-const cache = require("../index").cache;
 
 /**
  * Make an array that contains ping functions and store each reachable server in cache
@@ -30,10 +29,10 @@ export async function pingFunctionsInArray(servers: Servers[]): Promise<any[]> {
             return async (): Promise<void> => {
                 let status: string = "KO";
                 const ping: string[] = await Network.ping(ip);
-                if (Boolean(ping.shift())) {
+                if (Boolean(ping[0])) {
                     status = "OK";
-                    const pingCache = cache.get("reachableServersIps");
-                    if (pingCache === undefined)
+                    const pingCache = cache.get("reachableServersIps") ?? [];
+                    if (pingCache.length === 0)
                         cache.set("reachableServersIps", [ip], config.servers.cache_duration);
                     else {
                         pingCache.push(ip);
@@ -70,12 +69,22 @@ export async function systemctlTestFunctionsInArray(jobs: ServicesOfServers[]): 
                 const service: Services[] = await dbServices.getServicesById([job.serviceId]);
                 const jobObj: Jobs[] = await j.getJobsByIds([job.jobId as number]);
 
-                // TODO: replace variables below
+                const user: string | undefined = server[0].sshUser ? server[0].sshUser : process.env.SSH_USER;
+                const cmd: string = server[0].serviceStatusCmd ?? "service";
 
                 const status: string[] = await BasicServices.isServiceActive({
-                    user: process.env.SSH_USER,
+                    user: user as string,
                     ipAddr: server[0].ipAddr,
+                    cmd: cmd,
                 }, service[0] );
+                if (status.length === 0) {
+                    console.log(theme.warning("No status for service " + service[0].name + " of server " + server[0].ipAddr));
+                    const res: ServiceTestTemplate = await makeServiceTestJSON(service[0], server[0], jobObj[0], ["false"]);
+                    await Message.sendDataToMainServer(res);
+                    console.log(theme.bgInfo("Message to be send to main server : "));
+                    console.log(res);
+                    return;
+                }
                 const res: ServiceTestTemplate = await makeServiceTestJSON(service[0], server[0], jobObj[0], status);
                 await Message.sendDataToMainServer(res);
                 console.log(theme.bgInfo("Message to be send to main server : "));

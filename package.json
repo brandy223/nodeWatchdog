@@ -22,6 +22,6 @@
   "scripts": {
     "dev": "npx nodemon",
     "build": "rimraf ./build && tsc",
-    "start": "npm run build && node build/src/index.js"
+    "start": "npm run build && node build/index.js"
   }
 }
